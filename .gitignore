@@ -1,0 +1,37 @@
+# Dependencies
+/vendor/
+composer.lock
+
+# Environment
+/.env
+
+# Storage (runtime)
+/storage/sessions/*
+/storage/cache/*
+/storage/framework/*
+/storage/uploads/*
+/storage/logs/*
+!/storage/sessions/.gitkeep
+!/storage/cache/.gitkeep
+!/storage/framework/.gitkeep
+!/storage/uploads/.gitkeep
+!/storage/logs/.gitkeep
+
+# Database (keep schema, ignore runtime SQLite)
+/database/database.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+/.idea/
+/.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Composer
+composer.phar

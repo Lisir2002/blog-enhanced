@@ -1,0 +1,48 @@
+{
+    "name": "blog/cms",
+    "description": "Native PHP multi-author blog CMS with WordPress-like theme & plugin system.",
+    "type": "project",
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "ext-mbstring": "*",
+        "ext-json": "*",
+        "ext-ctype": "*",
+        "ext-xml": "*",
+        "ext-simplexml": "*",
+        "ext-dom": "*",
+        "ext-fileinfo": "*",
+        "ext-tokenizer": "*",
+        "erusev/parsedown": "^1.7",
+        "erusev/parsedown-extra": "^0.8",
+        "filp/whoops": "^2.15",
+        "symfony/var-dumper": "^6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Core\\": "core/"
+        },
+        "files": [
+            "core/Support/helpers.php"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php -r \"if (!file_exists('storage')) { mkdir('storage', 0777, true); }\"",
+            "@php -r \"if (!file_exists('storage/cache')) { mkdir('storage/cache', 0777, true); }\"",
+            "@php -r \"if (!file_exists('storage/logs')) { mkdir('storage/logs', 0777, true); }\"",
+            "@php -r \"if (!file_exists('storage/sessions')) { mkdir('storage/sessions', 0777, true); }\"",
+            "@php -r \"if (!file_exists('storage/framework')) { mkdir('storage/framework', 0777, true); }\"",
+            "@php -r \"if (!file_exists('storage/uploads')) { mkdir('storage/uploads', 0777, true); }\"",
+            "@php -r \"if (!file_exists('database/database.sqlite')) { touch('database/database.sqlite'); chmod('database/database.sqlite', 0666); }\""
+        ]
+    }
+}

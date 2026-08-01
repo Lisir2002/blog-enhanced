@@ -1,0 +1,74 @@
+<?php
+
+/**
+ * 后台路由 - /admin 前缀下，全部需要 admin/auth 中间件。
+ */
+
+use App\Controllers\Admin\DashboardController;
+use App\Controllers\Admin\PostController;
+use App\Controllers\Admin\CategoryController;
+use App\Controllers\Admin\TagController;
+use App\Controllers\Admin\MediaController;
+use App\Controllers\Admin\UserController;
+use App\Controllers\Admin\ThemeController;
+use App\Controllers\Admin\PluginController;
+use App\Controllers\Admin\SettingController;
+use App\Controllers\Admin\CommentController;
+
+$prefix = '/admin';
+
+$router->get($prefix, [DashboardController::class, 'index'])->name('admin')->middleware(['admin']);
+
+// Posts
+$router->get($prefix . '/posts', [PostController::class, 'index'])->name('admin.posts.index')->middleware(['admin']);
+$router->get($prefix . '/posts/create', [PostController::class, 'create'])->name('admin.posts.create')->middleware(['admin']);
+$router->post($prefix . '/posts', [PostController::class, 'store'])->name('admin.posts.store')->middleware(['admin', 'csrf']);
+$router->get($prefix . '/posts/{id}/edit', [PostController::class, 'edit'])->name('admin.posts.edit')->middleware(['admin']);
+$router->post($prefix . '/posts/{id}', [PostController::class, 'update'])->name('admin.posts.update')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/posts/{id}/delete', [PostController::class, 'delete'])->name('admin.posts.delete')->middleware(['admin', 'csrf']);
+
+// Categories
+$router->get($prefix . '/categories', [CategoryController::class, 'index'])->name('admin.categories.index')->middleware(['admin']);
+$router->post($prefix . '/categories', [CategoryController::class, 'store'])->name('admin.categories.store')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/categories/{id}/delete', [CategoryController::class, 'delete'])->name('admin.categories.delete')->middleware(['admin', 'csrf']);
+
+// Tags
+$router->get($prefix . '/tags', [TagController::class, 'index'])->name('admin.tags.index')->middleware(['admin']);
+$router->post($prefix . '/tags', [TagController::class, 'store'])->name('admin.tags.store')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/tags/{id}/delete', [TagController::class, 'delete'])->name('admin.tags.delete')->middleware(['admin', 'csrf']);
+
+// Media
+$router->get($prefix . '/media', [MediaController::class, 'index'])->name('admin.media.index')->middleware(['admin']);
+$router->post($prefix . '/media/upload', [MediaController::class, 'upload'])->name('admin.media.upload')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/media/{id}/delete', [MediaController::class, 'delete'])->name('admin.media.delete')->middleware(['admin', 'csrf']);
+
+// Users
+$router->get($prefix . '/users', [UserController::class, 'index'])->name('admin.users.index')->middleware(['admin']);
+$router->get($prefix . '/users/create', [UserController::class, 'create'])->name('admin.users.create')->middleware(['admin']);
+$router->post($prefix . '/users', [UserController::class, 'store'])->name('admin.users.store')->middleware(['admin', 'csrf']);
+$router->get($prefix . '/users/{id}/edit', [UserController::class, 'edit'])->name('admin.users.edit')->middleware(['admin']);
+$router->post($prefix . '/users/{id}', [UserController::class, 'update'])->name('admin.users.update')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/users/{id}/delete', [UserController::class, 'delete'])->name('admin.users.delete')->middleware(['admin', 'csrf']);
+
+// Themes
+$router->get($prefix . '/themes', [ThemeController::class, 'index'])->name('admin.themes.index')->middleware(['admin']);
+$router->post($prefix . '/themes/activate/{name}', [ThemeController::class, 'activate'])->name('admin.themes.activate')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/themes/upload', [ThemeController::class, 'upload'])->name('admin.themes.upload')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/themes/{name}/delete', [ThemeController::class, 'delete'])->name('admin.themes.delete')->middleware(['admin', 'csrf']);
+
+// Plugins
+$router->get($prefix . '/plugins', [PluginController::class, 'index'])->name('admin.plugins.index')->middleware(['admin']);
+$router->post($prefix . '/plugins/{name}/activate', [PluginController::class, 'activate'])->name('admin.plugins.activate')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/plugins/{name}/deactivate', [PluginController::class, 'deactivate'])->name('admin.plugins.deactivate')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/plugins/{name}/delete', [PluginController::class, 'delete'])->name('admin.plugins.delete')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/plugins/upload', [PluginController::class, 'upload'])->name('admin.plugins.upload')->middleware(['admin', 'csrf']);
+
+// Comments
+$router->get($prefix . '/comments', [CommentController::class, 'index'])->name('admin.comments.index')->middleware(['admin']);
+$router->post($prefix . '/comments/{id}/approve', [CommentController::class, 'approve'])->name('admin.comments.approve')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/comments/{id}/spam', [CommentController::class, 'markSpam'])->name('admin.comments.spam')->middleware(['admin', 'csrf']);
+$router->post($prefix . '/comments/{id}/delete', [CommentController::class, 'delete'])->name('admin.comments.delete')->middleware(['admin', 'csrf']);
+
+// Settings
+$router->get($prefix . '/settings', [SettingController::class, 'index'])->name('admin.settings.index')->middleware(['admin']);
+$router->post($prefix . '/settings', [SettingController::class, 'save'])->name('admin.settings.save')->middleware(['admin', 'csrf']);

@@ -1,0 +1,59 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Blog CMS CLI 入口
+ *
+ * 用法：
+ *   php blog install          # 初始化 + 创建管理员
+ *   php blog migrate          # 执行迁移
+ *   php blog seed             # 填充种子数据
+ *   php blog serve             # 启动开发服务器
+ *   php blog make:controller   # 生成控制器
+ */
+
+if (php_sapi_name() !== 'cli') {
+    exit("CLI only.\n");
+}
+
+define('BLOG_ROOT', dirname(__FILE__));
+
+require BLOG_ROOT . '/vendor/autoload.php';
+
+$cli = new \Core\Console\Application();
+
+$cli->add('install', function ($args) {
+    include BLOG_ROOT . '/bin/install.php';
+    return 0;
+}, '初始化数据库并创建管理员');
+
+$cli->add('serve', function ($args) {
+    $host = $args[0] ?? 'localhost:8080';
+    echo "Server running at http://$host\n";
+    echo "Press Ctrl+C to stop.\n";
+    passthru("php -S $host -t " . escapeshellarg(public_path()) . " " . escapeshellarg(public_path('index.php')));
+    return 0;
+}, '启动内置开发服务器');
+
+$cli->add('migrate', function ($args) {
+    $app = new \Core\Application();
+    $app->bootstrap();
+    $conn = $app->get(\Core\Database\Connection::class);
+    $schemaFile = $conn->isSqlite() ? 'schema.sqlite.sql' : 'schema.mysql.sql';
+    $schema = file_get_contents(database_path($schemaFile));
+    foreach (array_filter(array_map('trim', explode(';', $schema))) as $stmt) {
+        if ($stmt) {
+            $conn->pdo()->exec($stmt);
+            echo "✓ $stmt\n";
+        }
+    }
+    echo "\nMigration complete.\n";
+    return 0;
+}, '执行数据库迁移');
+
+$cli->add('seed', function ($args) {
+    include BLOG_ROOT . '/database/seeds/run.php';
+    return 0;
+}, '填充种子数据');
+
+exit($cli->run($argv));
