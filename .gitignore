@@ -35,3 +35,7 @@ Thumbs.db
 
 # Composer
 composer.phar
+
+# PHPUnit
+phpunit.phar
+.phpunit.cache/

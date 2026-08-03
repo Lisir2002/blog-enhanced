@@ -30,15 +30,28 @@ class Session
             ini_set('session.save_handler', 'files');
             ini_set('session.save_path', $path);
         }
+        // 安全标志：HttpOnly + SameSite=Lax；生产环境若走 HTTPS 则同时加 Secure
+        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
+            || (($_SERVER['SERVER_PORT'] ?? 0) == 443));
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_samesite', 'Lax');
+        if ($isSecure) {
+            ini_set('session.cookie_secure', '1');
+        }
+        // 会话 ID 长度与熵
+        ini_set('session.sid_length', '48');
+        ini_set('session.sid_bits_per_character', '6');
+        // 防止 JS 读取 cookie，阻止 session fixation（每个请求只读一次）
+        ini_set('session.use_strict_mode', '1');
         session_set_cookie_params([
             'lifetime' => config('session.lifetime', 120) * 60,
-            'path' => '/',
+            'path'     => '/',
             'httponly' => true,
             'samesite' => 'Lax',
+            'secure'   => $isSecure,
         ]);
-        session_name('blog_session');
+        session_name(config('session.cookie', 'blog_session'));
         session_start();
         $this->started = true;
     }

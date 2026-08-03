@@ -72,13 +72,23 @@ class AuthManager
         $sess->set('user_id', (int) $user->getAttribute('id'));
         $this->user = $user;
         $this->loaded = true;
+        \Core\Log\Log::info('User logged in', [
+            'uid'      => (int) $user->getAttribute('id'),
+            'username' => $user->getAttribute('username'),
+        ]);
         do_action('user_logged_in', $user);
     }
 
     public function logOut(): void
     {
         $sess = app(\Core\Http\Session::class);
-        do_action('user_logged_out', $this->user);
+        if ($this->user) {
+            \Core\Log\Log::info('User logged out', [
+                'uid'      => (int) $this->user->getAttribute('id'),
+                'username' => $this->user->getAttribute('username'),
+            ]);
+            do_action('user_logged_out', $this->user);
+        }
         $sess->forget('user_id');
         session_regenerate_id(true);
         $this->user = null;
@@ -102,13 +112,28 @@ class AuthManager
         return $this->hasRole('admin');
     }
 
-    public function can(string $capability): bool
+    /**
+     * 校验当前用户是否拥有指定权限。
+     *
+     * 支持第二个参数：文章 ID / 文章数组 / User 对象，用于细粒度校验
+     * （例如 author 编辑文章时只能编辑自己的）。
+     */
+    public function can(string $capability, mixed $args = null): bool
     {
         $u = $this->user();
         if (!$u) {
             return false;
         }
         $role = $u->getAttribute('role');
-        return Capability::has($role, $capability);
+        if (Capability::has($role, $capability, $args)) {
+            // author / contributor 编辑文章时，必须是自己的
+            if ($capability === 'edit_posts' && $args !== null && in_array($role, ['author', 'contributor'], true)) {
+                $authorId = is_array($args) ? (int) ($args['author_id'] ?? 0)
+                    : (is_object($args) && method_exists($args, 'getAttribute') ? (int) $args->getAttribute('author_id') : 0);
+                return $authorId === (int) $u->getAttribute('id');
+            }
+            return true;
+        }
+        return false;
     }
 }

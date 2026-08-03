@@ -12,7 +12,7 @@ use Core\Support\Config;
  */
 class Application extends Container
 {
-    private static Application $instance;
+    private static ?Application $instance = null;
 
     public function __construct()
     {
@@ -24,7 +24,7 @@ class Application extends Container
         $this->instance(Config::class, new Config());
     }
 
-    public static function getInstance(): static
+    public static function getInstance(): ?static
     {
         return self::$instance;
     }
@@ -51,10 +51,14 @@ class Application extends Container
         $this->singleton(\Core\Plugin\PluginManager::class);
         $this->singleton(\Core\Auth\AuthManager::class);
         $this->singleton(\Core\Cache\FileCache::class);
+        $this->singleton(\Core\Cache\CacheInterface::class, fn () => $this->get(\Core\Cache\FileCache::class));
         $this->singleton(\Core\Database\QueryBuilder::class);
-        $this->singleton(\Parsedown::class, function() {
+        $this->singleton(\App\Services\LoginRateLimiter::class);
+        $this->singleton(\Parsedown::class, function () {
             $pd = new \Parsedown();
-            $pd->setSafeMode(false);
+            // 开启安全模式：转义用户提交的 Markdown 中的原始 HTML 标签与危险 URL
+            // （在 Parsedown 1.7 中 setSafeMode(true) 会过滤 <script>、on* 属性、javascript: URL）
+            $pd->setSafeMode(true);
             return $pd;
         });
 
@@ -140,14 +144,16 @@ class Application extends Container
         try {
             $response = $router->dispatch($request->method(), $request->path());
         } catch (\Throwable $e) {
+            // 记录异常日志（含请求上下文，便于排查）
+            \Core\Log\Log::error('Unhandled exception', [
+                'msg'   => $e->getMessage(),
+                'code'  => $e->getCode(),
+                'file'  => $e->getFile() . ':' . $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'uri'   => $_SERVER['REQUEST_URI'] ?? '',
+                'ip'    => $request->ip(),
+            ]);
             $response = $this->handleException($e);
-        }
-        // Persist flash data
-        $sess = $this->get(Session::class);
-        if ($sess->has('_old_input')) {
-            // Clear old input from previous flash; only valid for the next request
-            // We'll clear when sending response back.
-            // Note: real flash should be cleared after one read; we keep simple here.
         }
         $response->send();
     }
@@ -160,23 +166,29 @@ class Application extends Container
             $resp->setContentType('text/html');
             $resp->setStatus(500);
             $resp->setBody(sprintf(
-                "<h1>Server Error (500)</h1><p>%s (%d)</p><pre>%s</pre>",
+                "<h1>Server Error (500)</h1><p>%s (%d)</p><p>%s:%d</p><pre>%s</pre>",
                 e($e->getMessage()),
                 $e->getCode(),
+                e($e->getFile()),
+                $e->getLine(),
                 e($e->getTraceAsString())
             ));
             return $resp;
         }
-        // Try theme error page
+        // 生产环境不泄露细节，只显示通用错误页
         try {
             $theme = $this->get(\Core\View\ThemeManager::class);
             if ($theme->templateExists('error')) {
                 return $theme->render('error', ['exception' => $e])->setStatus(500);
             }
         } catch (\Throwable $ee) {
-            // fall through
+            // 主题渲染也失败 - 兜底
+            \Core\Log\Log::critical('Theme error page rendering failed', [
+                'msg' => $ee->getMessage(),
+            ]);
         }
-        return (new Response())->setBody('<h1>Server Error</h1>')->setStatus(500)
+        return (new Response())->setBody('<h1>Server Error</h1><p>内部错误，请联系管理员。</p>')
+            ->setStatus(500)
             ->setContentType('text/html');
     }
 }

@@ -39,44 +39,62 @@ class Connection
         if ($this->pdo !== null) {
             return $this->pdo;
         }
-        if ($this->driver === 'sqlite' || $this->driver === 'sqlite3') {
-            $path = config('database.path', 'database.sqlite');
-            // If path is absolute, use as-is; otherwise resolve under database/
-            if (!str_starts_with($path, '/')) {
-                $path = database_path($path);
+        try {
+            if ($this->driver === 'sqlite' || $this->driver === 'sqlite3') {
+                $path = config('database.path', 'database.sqlite');
+                // 内存数据库（测试用）：直接走 :memory: 不拼路径
+                if ($path === ':memory:') {
+                    $this->pdo = new \PDO('sqlite::memory:', null, null, [
+                        \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                        \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                        \PDO::ATTR_EMULATE_PREPARES => false,
+                    ]);
+                } else {
+                    // If path is absolute, use as-is; otherwise resolve under database/
+                    if (!str_starts_with($path, '/')) {
+                        $path = database_path($path);
+                    }
+                    // Create parent dir if needed
+                    $dir = dirname($path);
+                    if (!is_dir($dir)) {
+                        @mkdir($dir, 0777, true);
+                    }
+                    if (!file_exists($path)) {
+                        @touch($path);
+                        @chmod($path, 0666);
+                    }
+                    $this->pdo = new \PDO("sqlite:$path", null, null, [
+                        \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                        \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                        \PDO::ATTR_EMULATE_PREPARES => false,
+                    ]);
+                }
+                // Foreign keys on
+                $this->pdo->exec('PRAGMA foreign_keys = ON;');
+                // Performance for SQLite (WAL 不支持 :memory:，会自动忽略)
+                $this->pdo->exec('PRAGMA journal_mode = WAL;');
+                $this->pdo->exec('PRAGMA synchronous = NORMAL;');
+            } else {
+                $host = config('database.host', '127.0.0.1');
+                $port = config('database.port', 3306);
+                $name = config('database.name', 'blog');
+                $user = config('database.user', 'root');
+                $pass = config('database.pass', '');
+                $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+                $this->pdo = new \PDO($dsn, $user, $pass, [
+                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                    \PDO::ATTR_EMULATE_PREPARES => false,
+                ]);
+                $this->pdo->exec("SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO'");
             }
-            // Create parent dir if needed
-            $dir = dirname($path);
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0777, true);
-            }
-            if (!file_exists($path)) {
-                @touch($path);
-                @chmod($path, 0666);
-            }
-            $this->pdo = new \PDO("sqlite:$path", null, null, [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                \PDO::ATTR_EMULATE_PREPARES => false,
+        } catch (\PDOException $e) {
+            // 数据库连接失败 - 记录 critical 日志（不泄露密码）
+            \Core\Log\Log::critical('Database connection failed', [
+                'driver' => $this->driver,
+                'msg'    => $e->getMessage(),
             ]);
-            // Foreign keys on
-            $this->pdo->exec('PRAGMA foreign_keys = ON;');
-            // Performance for SQLite
-            $this->pdo->exec('PRAGMA journal_mode = WAL;');
-            $this->pdo->exec('PRAGMA synchronous = NORMAL;');
-        } else {
-            $host = config('database.host', '127.0.0.1');
-            $port = config('database.port', 3306);
-            $name = config('database.name', 'blog');
-            $user = config('database.user', 'root');
-            $pass = config('database.pass', '');
-            $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
-            $this->pdo = new \PDO($dsn, $user, $pass, [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                \PDO::ATTR_EMULATE_PREPARES => false,
-            ]);
-            $this->pdo->exec("SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO'");
+            throw $e;
         }
         return $this->pdo;
     }

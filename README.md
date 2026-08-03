@@ -13,7 +13,9 @@
 - **媒体库**（按年/月分目录）
 - **SEO 友好 URL**、RSS 订阅、Sitemap
 - **高性能 SSR** + 现代 CSS、零前端框架依赖
-- **安全**：CSRF 防护、bcrypt 密码哈希、PDO 参数化查询
+- **安全**：CSRF 防护、bcrypt 密码哈希、PDO 参数化查询、登录限流、Parsedown 安全模式
+- **日志系统**：按天分文件、8 级日志、异常自动记录
+- **测试**：PHPUnit 10 + 内存 SQLite 隔离、22 个核心测试
 
 ## 快速开始
 
@@ -182,20 +184,20 @@ blog/
 │   │   ├── Web/          # 前台控制器（9 个）
 │   │   └── Admin/        # 后台控制器（11 个）
 │   ├── Models/           # 数据模型（7 个）
-│   ├── Middleware/        # CSRF / Auth / Admin / Guest
-│   └── Services/
+│   └── Services/         # LoginRateLimiter 等业务服务
 ├── core/                  # 核心引擎
 │   ├── Application.php   # 应用主类
 │   ├── Container.php     # IoC 容器
-│   ├── Router.php        # 路由器
+│   ├── Router.php        # 路由器（正则缓存）
 │   ├── Http/             # Request / Response / Session
-│   ├── Database/         # PDO + QueryBuilder + Model
-│   ├── Hook/            # Action + Filter（类 WP）
-│   ├── View/            # ThemeManager + ViewRenderer
-│   ├── Plugin/          # PluginManager
-│   ├── Auth/            # AuthManager + Capability
-│   ├── Cache/           # FileCache
-│   ├── Console/         # CLI
+│   ├── Database/         # PDO + QueryBuilder（不可变）+ Model
+│   ├── Hook/             # Action + Filter（类 WP）
+│   ├── View/             # ThemeManager + ViewRenderer
+│   ├── Plugin/           # PluginManager
+│   ├── Auth/             # AuthManager + Capability
+│   ├── Cache/            # FileCache + CacheInterface
+│   ├── Log/              # Log（8 级日志）
+│   ├── Console/          # CLI
 │   └── Support/          # Config + helpers.php
 ├── resources/
 │   ├── views/            # 后台视图
@@ -213,6 +215,19 @@ blog/
 ├── .env.example
 └── README.md
 ```
+
+## 测试
+
+```bash
+# 用 phar 运行（无需 composer install phpunit）
+php phpunit.phar
+
+# 或用 composer
+composer install
+vendor/bin/phpunit
+```
+
+测试使用内存 SQLite（`:memory:`），每个测试方法自动隔离。详见 [docs/architecture.md](docs/architecture.md)。
 
 ## License
 

@@ -47,6 +47,8 @@ XML;
 
         return (new Response())
             ->setContentType('application/rss+xml; charset=UTF-8')
+            ->header('Cache-Control', 'public, max-age=300')
+            ->header('ETag', '"' . md5($xml) . '"')
             ->setBody($xml);
     }
 
@@ -72,6 +74,8 @@ XML;
 
         return (new Response())
             ->setContentType('application/xml; charset=UTF-8')
+            ->header('Cache-Control', 'public, max-age=3600')
+            ->header('ETag', '"' . md5($xml) . '"')
             ->setBody($xml);
     }
 

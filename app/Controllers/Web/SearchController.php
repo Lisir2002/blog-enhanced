@@ -20,25 +20,26 @@ class SearchController
         $posts = [];
         $total = 0;
         if ($q !== '') {
-            $qb = Post::query();
-            $qb->where('status', '=', 'published')
-                ->where('published_at', '<=', date('Y-m-d H:i:s'))
-                ->where(static function ($q2) use ($q, $qb) {
-                    // simple LIKE search across title + content
-                    $qb->where('title', 'LIKE', '%' . $q . '%');
-                });
-            // do a broader search by OR
+            // 全文搜索：title / content_md / excerpt 三个字段 OR LIKE
             $conn = app(\Core\Database\Connection::class);
             $pdo = $conn->pdo();
-            $sql = "SELECT * FROM posts WHERE status = 'published' AND published_at <= ? AND (title LIKE ? OR content_md LIKE ? OR excerpt LIKE ?) ORDER BY published_at DESC LIMIT ? OFFSET ?";
-            $stmt = $pdo->prepare($sql);
             $like = '%' . $q . '%';
-            $stmt->execute([date('Y-m-d H:i:s'), $like, $like, $like, $perPage, $offset]);
+            $now = date('Y-m-d H:i:s');
+
+            $sql = "SELECT * FROM posts
+                    WHERE status = 'published' AND published_at <= ?
+                      AND (title LIKE ? OR content_md LIKE ? OR excerpt LIKE ?)
+                    ORDER BY published_at DESC
+                    LIMIT ? OFFSET ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$now, $like, $like, $like, $perPage, $offset]);
             $posts = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-            $countSql = "SELECT COUNT(*) FROM posts WHERE status = 'published' AND published_at <= ? AND (title LIKE ? OR content_md LIKE ? OR excerpt LIKE ?)";
+            $countSql = "SELECT COUNT(*) FROM posts
+                          WHERE status = 'published' AND published_at <= ?
+                            AND (title LIKE ? OR content_md LIKE ? OR excerpt LIKE ?)";
             $stmt2 = $pdo->prepare($countSql);
-            $stmt2->execute([date('Y-m-d H:i:s'), $like, $like, $like]);
+            $stmt2->execute([$now, $like, $like, $like]);
             $total = (int) $stmt2->fetchColumn();
         }
         $totalPages = max(1, (int) ceil($total / $perPage));

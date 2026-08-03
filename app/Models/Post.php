@@ -90,8 +90,19 @@ class Post extends Model
         if (!$id) {
             return;
         }
+        // IP 去重：同一 IP + 文章 ID 30 分钟内只算一次
+        /** @var \Core\Cache\CacheInterface $cache */
+        $cache = app(\Core\Cache\CacheInterface::class);
+        $ip = app(\Core\Http\Request::class)->ip();
+        $key = 'viewed:' . $id . ':' . md5($ip);
+        if ($cache->has($key)) {
+            return;
+        }
+        $cache->set($key, true, 1800);
+
         $pdo = app(\Core\Database\Connection::class)->pdo();
-        $pdo->exec("UPDATE posts SET views = views + 1 WHERE id = " . (int) $id);
+        $stmt = $pdo->prepare('UPDATE posts SET views = views + 1 WHERE id = :id');
+        $stmt->execute([':id' => $id]);
     }
 
     public static function published(int $page = 1, int $perPage = 10): array

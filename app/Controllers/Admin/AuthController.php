@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Models\User;
 use App\Models\Option;
+use App\Services\LoginRateLimiter;
 use Core\Http\Response;
 use Core\Http\Request;
 use Core\Http\Session;
@@ -22,6 +23,9 @@ class AuthController
     {
         $request = app(Request::class);
         $sess = app(Session::class);
+        /** @var LoginRateLimiter $limiter */
+        $limiter = app(LoginRateLimiter::class);
+        $ip = $request->ip();
         $username = trim((string) $request->input('username', ''));
         $password = (string) $request->input('password', '');
 
@@ -30,20 +34,46 @@ class AuthController
             return redirect(url('/login'));
         }
 
+        // 限流检查
+        if ($limiter->isLocked($ip, $username)) {
+            $sess->flash('error', '登录尝试过多，请 15 分钟后再试');
+            $sess->flashInput(['username' => $username]);
+            return redirect(url('/login'));
+        }
+
         $user = User::query()
             ->where('username', '=', $username)
             ->orWhere('email', '=', $username)
             ->first();
 
-        if (!$user || !password_verify($password, $user['password'])) {
-            $sess->flash('error', '用户名或密码错误');
+        $ok = $user && password_verify($password, $user['password']);
+
+        if (!$ok) {
+            $remaining = $limiter->remainingAttempts($ip, $username);
+            $limiter->recordFailure($ip, $username);
+            \Core\Log\Log::warning('Login failed', [
+                'ip'       => $ip,
+                'username' => $username,
+                'remaining'=> max(0, $remaining - 1),
+            ]);
+
+            if ($remaining <= 1) {
+                $msg = '登录失败次数过多，账号已锁定 15 分钟';
+            } else {
+                $msg = sprintf('用户名或密码错误，剩余尝试次数 %d', $remaining - 1);
+            }
+            $sess->flash('error', $msg);
+            $sess->flashInput(['username' => $username]);
             return redirect(url('/login'));
         }
+
         if (($user['status'] ?? '') !== 'active') {
             $sess->flash('error', '账号已被禁用');
             return redirect(url('/login'));
         }
 
+        // 成功 - 清零计数 + 登录
+        $limiter->clear($ip, $username);
         $auth = app(\Core\Auth\AuthManager::class);
         $auth->logIn(new User($user));
 
@@ -71,6 +101,10 @@ class AuthController
 
         if (strlen($username) < 3 || strlen($password) < 6 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $sess->flash('error', '用户名至少3位，密码至少6位，邮箱格式需正确');
+            return redirect(url('/register'));
+        }
+        if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $username)) {
+            $sess->flash('error', '用户名只允许字母、数字、下划线、连字符');
             return redirect(url('/register'));
         }
         if (User::query()->where('username', '=', $username)->first()) {

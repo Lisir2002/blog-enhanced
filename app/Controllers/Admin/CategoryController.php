@@ -41,6 +41,8 @@ class CategoryController
             'created_at'  => date('Y-m-d H:i:s'),
             'updated_at'  => date('Y-m-d H:i:s'),
         ]);
+        // 清除菜单缓存
+        app(\Core\Cache\CacheInterface::class)->delete('nav_menu');
         app(Session::class)->flash('success', '分类已创建');
         return redirect(route('admin.categories.index'));
     }
@@ -60,6 +62,7 @@ class CategoryController
         ];
         if ($data['slug'] === '') $data['slug'] = $this->slugify($data['name']);
         Category::query()->where('id', '=', $id)->update($data);
+        app(\Core\Cache\CacheInterface::class)->delete('nav_menu');
         app(Session::class)->flash('success', '分类已更新');
         return redirect(route('admin.categories.index'));
     }
@@ -70,6 +73,7 @@ class CategoryController
         $cat = Category::find($id);
         if ($cat) {
             $cat->delete();
+            app(\Core\Cache\CacheInterface::class)->delete('nav_menu');
             app(Session::class)->flash('success', '分类已删除');
         }
         return redirect(route('admin.categories.index'));

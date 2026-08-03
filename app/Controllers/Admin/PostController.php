@@ -22,13 +22,13 @@ class PostController
         $qb = Post::query();
         $status = $request->input('status');
         if ($status && in_array($status, ['draft', 'published', 'archived'], true)) {
-            $qb->where('status', '=', $status);
+            $qb = $qb->where('status', '=', $status);
         }
         $search = trim((string) $request->input('q', ''));
         if ($search !== '') {
-            $qb->where('title', 'LIKE', '%' . $search . '%');
+            $qb = $qb->where('title', 'LIKE', '%' . $search . '%');
         }
-        $total = (clone $qb)->count();
+        $total = $qb->count();
         $posts = $qb->orderBy('created_at', 'DESC')->limit($perPage)->offset($offset)->get();
         $totalPages = max(1, (int) ceil($total / $perPage));
 
@@ -76,10 +76,22 @@ class PostController
         $parsedown = app(\Parsedown::class);
         $data['content_html'] = $parsedown->text($data['content_md'] ?? '');
 
-        $id = Post::query()->insert($data);
-
-        // Sync tags
-        $this->syncTags((int) $id, $request->input('tags', ''));
+        $pdo = app(\Core\Database\Connection::class)->pdo();
+        try {
+            $pdo->beginTransaction();
+            $id = Post::query()->insert($data);
+            $this->syncTags((int) $id, $request->input('tags', ''));
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            \Core\Log\Log::error('Post store failed', [
+                'msg' => $e->getMessage(),
+            ]);
+            $sess->flash('error', '保存失败：' . e($e->getMessage()));
+            return redirect(route('admin.posts.create'));
+        }
 
         do_action('post_saved', $id, $data, false);
 
@@ -140,8 +152,23 @@ class PostController
         $parsedown = app(\Parsedown::class);
         $data['content_html'] = $parsedown->text($data['content_md'] ?? '');
 
-        Post::query()->where('id', '=', $id)->update($data);
-        $this->syncTags($id, $request->input('tags', ''));
+        $pdo = app(\Core\Database\Connection::class)->pdo();
+        try {
+            $pdo->beginTransaction();
+            Post::query()->where('id', '=', $id)->update($data);
+            $this->syncTags($id, $request->input('tags', ''));
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            \Core\Log\Log::error('Post update failed', [
+                'id'  => $id,
+                'msg' => $e->getMessage(),
+            ]);
+            $sess->flash('error', '更新失败：' . e($e->getMessage()));
+            return redirect(route('admin.posts.edit', ['id' => $id]));
+        }
 
         do_action('post_saved', $id, $data, true);
 
@@ -154,11 +181,26 @@ class PostController
         $id = (int) $params['id'];
         $post = Post::find($id);
         if ($post) {
-            $post->delete();
-            app(\Core\Database\QueryBuilder::class)
-                ->table('post_tag')
-                ->where('post_id', '=', $id)
-                ->delete();
+            $pdo = app(\Core\Database\Connection::class)->pdo();
+            try {
+                $pdo->beginTransaction();
+                $post->delete();
+                app(\Core\Database\QueryBuilder::class)
+                    ->table('post_tag')
+                    ->where('post_id', '=', $id)
+                    ->delete();
+                $pdo->commit();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                \Core\Log\Log::error('Post delete failed', [
+                    'id'  => $id,
+                    'msg' => $e->getMessage(),
+                ]);
+                app(Session::class)->flash('error', '删除失败');
+                return redirect(route('admin.posts.index'));
+            }
             app(Session::class)->flash('success', '文章已删除');
         }
         return redirect(route('admin.posts.index'));
@@ -230,7 +272,7 @@ class PostController
         while (true) {
             $qb = Post::query()->where('slug', '=', $slug);
             if ($exceptId) {
-                $qb->where('id', '!=', $exceptId);
+                $qb = $qb->where('id', '!=', $exceptId);
             }
             if (!$qb->first()) break;
             $slug = $base . '-' . (++$i);

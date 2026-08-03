@@ -115,4 +115,21 @@ class Container
         $this->instances[$abstract] = $object;
         $this->singletons[$abstract] = true;
     }
+
+    /**
+     * 测试辅助方法：重置 Application 单例。
+     * 仅用于测试环境，运行时不应调用。
+     */
+    public static function resetForTesting(): void
+    {
+        if (class_exists(Application::class, false)) {
+            // 清除单例引用
+            $ref = new ReflectionClass(Application::class);
+            if ($ref->hasProperty('instance')) {
+                $prop = $ref->getProperty('instance');
+                $prop->setAccessible(true);
+                $prop->setValue(null, null);
+            }
+        }
+    }
 }

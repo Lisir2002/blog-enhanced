@@ -3,7 +3,7 @@
 namespace Core\Database;
 
 /**
- * 流式查询构造器。
+ * 流式查询构造器 - 不可变（每次链式调用都返回 clone）。
  *
  * 用法：
  *   $rows = $qb->table('posts')
@@ -16,6 +16,9 @@ namespace Core\Database;
  *       'title' => 'Hello', 'content' => '...',
  *       'created_at' => date('Y-m-d H:i:s'),
  *   ]);
+ *
+ * 注意：链式方法（where/orderBy/limit 等）均返回新实例，不修改原对象。
+ *       可以安全地复用 $qb 基础查询分段构造不同条件。
  */
 class QueryBuilder
 {
@@ -30,87 +33,91 @@ class QueryBuilder
     private array $bindings = [];
     private ?string $groupBy = null;
     private array $having = [];
+    private int $placeholderCounter = 0;
 
     public function __construct(Connection $conn)
     {
         $this->conn = $conn;
     }
 
+    /**
+     * 起始一个新表查询 - 返回新的已重置实例。
+     */
     public function table(string $table): static
     {
         $new = clone $this;
-        $new->reset();
         $new->table = $this->conn->tablePrefix() . $table;
+        $new->wheres = [];
+        $new->orders = [];
+        $new->limit = null;
+        $new->offset = null;
+        $new->select = ['*'];
+        $new->joins = [];
+        $new->bindings = [];
+        $new->groupBy = null;
+        $new->having = [];
+        $new->placeholderCounter = 0;
         return $new;
-    }
-
-    private function reset(): void
-    {
-        $this->table = '';
-        $this->wheres = [];
-        $this->orders = [];
-        $this->limit = null;
-        $this->offset = null;
-        $this->select = ['*'];
-        $this->joins = [];
-        $this->bindings = [];
-        $this->groupBy = null;
-        $this->having = [];
     }
 
     public function select(string ...$columns): static
     {
-        $this->select = $columns;
-        return $this;
+        $new = clone $this;
+        $new->select = $columns;
+        return $new;
     }
 
     public function where(string $column, mixed $op, mixed $value = null): static
     {
         if ($value === null) {
-            // 2-arg form: where('col', 'value') → where col = value
             $value = $op;
             $op = '=';
         }
-        $placeholder = $this->nextPlaceholder();
-        $this->wheres[] = ['AND', "$column $op $placeholder"];
-        $this->bindings[$placeholder] = $value;
-        return $this;
+        $new = clone $this;
+        $placeholder = $new->nextPlaceholder();
+        $new->wheres[] = ['AND', "$column $op $placeholder"];
+        $new->bindings[$placeholder] = $value;
+        return $new;
     }
 
     public function whereIn(string $column, array $values): static
     {
+        $new = clone $this;
         if (empty($values)) {
-            $this->wheres[] = ['AND', '0'];
-            return $this;
+            $new->wheres[] = ['AND', '0'];
+            return $new;
         }
         $placeholders = [];
         foreach ($values as $v) {
-            $placeholder = $this->nextPlaceholder();
+            $placeholder = $new->nextPlaceholder();
             $placeholders[] = $placeholder;
-            $this->bindings[$placeholder] = $v;
+            $new->bindings[$placeholder] = $v;
         }
-        $this->wheres[] = ['AND', "$column IN (" . implode(', ', $placeholders) . ")"];
-        return $this;
+        $new->wheres[] = ['AND', "$column IN (" . implode(', ', $placeholders) . ")"];
+        return $new;
     }
 
     public function whereNull(string $column): static
     {
-        $this->wheres[] = ['AND', "$column IS NULL"];
-        return $this;
+        $new = clone $this;
+        $new->wheres[] = ['AND', "$column IS NULL"];
+        return $new;
     }
 
     public function whereNotNull(string $column): static
     {
-        $this->wheres[] = ['AND', "$column IS NOT NULL"];
-        return $this;
+        $new = clone $this;
+        $new->wheres[] = ['AND', "$column IS NOT NULL"];
+        return $new;
     }
 
     public function whereLike(string $column, string $pattern): static
     {
-        $placeholder = $this->nextPlaceholder();
-        $this->wheres[] = ['AND', "$column LIKE $placeholder"];
-        $this->bindings[$placeholder] = $pattern;
-        return $this;
+        $new = clone $this;
+        $placeholder = $new->nextPlaceholder();
+        $new->wheres[] = ['AND', "$column LIKE $placeholder"];
+        $new->bindings[$placeholder] = $pattern;
+        return $new;
     }
 
     public function orWhere(string $column, mixed $op, mixed $value = null): static
@@ -119,17 +126,19 @@ class QueryBuilder
             $value = $op;
             $op = '=';
         }
-        $placeholder = $this->nextPlaceholder();
-        $this->wheres[] = ['OR', "$column $op $placeholder"];
-        $this->bindings[$placeholder] = $value;
-        return $this;
+        $new = clone $this;
+        $placeholder = $new->nextPlaceholder();
+        $new->wheres[] = ['OR', "$column $op $placeholder"];
+        $new->bindings[$placeholder] = $value;
+        return $new;
     }
 
     public function join(string $table, string $on, string $type = 'INNER'): static
     {
+        $new = clone $this;
         $prefixedTable = $this->conn->tablePrefix() . $table;
-        $this->joins[] = "$type JOIN $prefixedTable ON $on";
-        return $this;
+        $new->joins[] = "$type JOIN $prefixedTable ON $on";
+        return $new;
     }
 
     public function leftJoin(string $table, string $on): static
@@ -139,32 +148,37 @@ class QueryBuilder
 
     public function orderBy(string $column, string $direction = 'ASC'): static
     {
-        $this->orders[] = "$column $direction";
-        return $this;
+        $new = clone $this;
+        $new->orders[] = "$column $direction";
+        return $new;
     }
 
     public function limit(int $limit): static
     {
-        $this->limit = $limit;
-        return $this;
+        $new = clone $this;
+        $new->limit = $limit;
+        return $new;
     }
 
     public function offset(int $offset): static
     {
-        $this->offset = $offset;
-        return $this;
+        $new = clone $this;
+        $new->offset = $offset;
+        return $new;
     }
 
     public function groupBy(string $col): static
     {
-        $this->groupBy = $col;
-        return $this;
+        $new = clone $this;
+        $new->groupBy = $col;
+        return $new;
     }
 
     public function having(string $cond): static
     {
-        $this->having[] = $cond;
-        return $this;
+        $new = clone $this;
+        $new->having[] = $cond;
+        return $new;
     }
 
     /**
@@ -178,10 +192,14 @@ class QueryBuilder
         return $stmt->fetchAll();
     }
 
+    /**
+     * 取第一行（自动 limit 1，不修改原对象）。
+     */
     public function first(): ?array
     {
-        $this->limit(1);
-        $rows = $this->get();
+        $new = clone $this;
+        $new->limit = 1;
+        $rows = $new->get();
         return $rows[0] ?? null;
     }
 
@@ -202,7 +220,7 @@ class QueryBuilder
     }
 
     /**
-     * 插入新行。
+     * 插入新行，返回 lastInsertId。
      */
     public function insert(array $values): int|string
     {
@@ -217,12 +235,11 @@ class QueryBuilder
         $sql = "INSERT INTO {$this->table} (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $placeholders) . ")";
         $stmt = $this->conn->pdo()->prepare($sql);
         $stmt->execute($bindings);
-        $pdo = $this->conn->pdo();
-        return $pdo->lastInsertId();
+        return $this->conn->pdo()->lastInsertId();
     }
 
     /**
-     * 更新匹配的行。
+     * 更新匹配的行，返回受影响行数。
      */
     public function update(array $values): int
     {
@@ -243,6 +260,9 @@ class QueryBuilder
         return $stmt->rowCount();
     }
 
+    /**
+     * 删除匹配的行，返回受影响行数。
+     */
     public function delete(): int
     {
         $sql = "DELETE FROM {$this->table}";
@@ -253,6 +273,56 @@ class QueryBuilder
         $stmt->execute($this->bindings);
         return $stmt->rowCount();
     }
+
+    // ----------------------------------------------------------------
+    // 事务支持
+    // ----------------------------------------------------------------
+
+    /**
+     * 在事务中执行回调，自动提交 / 回滚。
+     */
+    public function transaction(callable $callback): mixed
+    {
+        $pdo = $this->conn->pdo();
+        $wasInTransaction = $pdo->inTransaction();
+        if (!$wasInTransaction) {
+            $pdo->beginTransaction();
+        }
+        try {
+            $result = $callback($this);
+            if (!$wasInTransaction) {
+                $pdo->commit();
+            }
+            return $result;
+        } catch (\Throwable $e) {
+            if (!$wasInTransaction) {
+                $pdo->rollBack();
+            }
+            \Core\Log\Log::error('Transaction rolled back', [
+                'msg' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    public function beginTransaction(): bool
+    {
+        return $this->conn->pdo()->beginTransaction();
+    }
+
+    public function commit(): bool
+    {
+        return $this->conn->pdo()->commit();
+    }
+
+    public function rollBack(): bool
+    {
+        return $this->conn->pdo()->rollBack();
+    }
+
+    // ----------------------------------------------------------------
+    // 内部构建方法
+    // ----------------------------------------------------------------
 
     private function buildSelect(): string
     {
@@ -303,8 +373,6 @@ class QueryBuilder
         }
         return implode(' ', $parts);
     }
-
-    private int $placeholderCounter = 0;
 
     private function nextPlaceholder(): string
     {

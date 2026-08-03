@@ -23,6 +23,9 @@ class Router
     /** @var array<int, string> */
     private array $notFoundHandlers = [];
 
+    /** @var array<string, string> pattern → compiled regex（请求内缓存） */
+    private array $compiledCache = [];
+
     /**
      * 加载路由文件（默认 routes/web.php）。
      */
@@ -145,7 +148,8 @@ class Router
 
         // HTTP method override (for forms that don't support PUT/DELETE)
         if ($method === 'POST') {
-            $override = $_POST['_method'] ?? $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'] ?? null;
+            $request = app(\Core\Http\Request::class);
+            $override = $request->input('_method') ?: $request->server('HTTP_X_HTTP_METHOD_OVERRIDE');
             if ($override !== null) {
                 $method = strtoupper($override);
             }
@@ -155,7 +159,13 @@ class Router
             if ($route['method'] !== $method) {
                 continue;
             }
-            [$regex] = $this->compilePattern($route['pattern']);
+            // 正则编译缓存：避免每次请求对每条路由重新编译
+            if (!isset($this->compiledCache[$route['pattern']])) {
+                [$regex] = $this->compilePattern($route['pattern']);
+                $this->compiledCache[$route['pattern']] = $regex;
+            } else {
+                $regex = $this->compiledCache[$route['pattern']];
+            }
             if (!preg_match($regex, $path, $matches)) {
                 continue;
             }
@@ -211,6 +221,16 @@ class Router
 
     private function invokeNotFound(): \Core\Http\Response
     {
+        // 记录 404，方便排查死链与扫描行为
+        try {
+            \Core\Log\Log::notice('404 Not Found', [
+                'uri' => $_SERVER['REQUEST_URI'] ?? '',
+                'ip'  => $_SERVER['REMOTE_ADDR'] ?? '',
+            ]);
+        } catch (\Throwable) {
+            // 日志失败不影响响应
+        }
+
         // Try theme 404 template
         try {
             $theme = app(\Core\View\ThemeManager::class);
@@ -219,7 +239,13 @@ class Router
                 return $resp->setStatus(404);
             }
         } catch (\Throwable $e) {
-            // fall through
+            try {
+                \Core\Log\Log::warning('404 template render failed', [
+                    'msg' => $e->getMessage(),
+                ]);
+            } catch (\Throwable) {
+                // fall through
+            }
         }
         return (new \Core\Http\Response())
             ->setBody('<h1>404 Not Found</h1>')

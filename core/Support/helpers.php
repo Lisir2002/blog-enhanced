@@ -465,14 +465,20 @@ if (!function_exists('have_posts')) {
 if (!function_exists('wp_nav_menu')) {
     function wp_nav_menu(): void
     {
-        // Simple nav menu - top categories
-        $cats = \App\Models\Category::all();
-        echo '<ul class="menu">';
-        foreach ($cats as $c) {
-            $cat = new \App\Models\Category($c);
-            echo '<li><a href="' . $cat->url() . '">' . e($cat->getAttribute('name')) . '</a></li>';
-        }
-        echo '</ul>';
+        // 菜单缓存 1 小时，新增分类时插件应清空 cache:nav_menu
+        /** @var \Core\Cache\CacheInterface $cache */
+        $cache = app(\Core\Cache\CacheInterface::class);
+        $html = $cache->remember('nav_menu', function () {
+            $cats = \App\Models\Category::all();
+            $out = '<ul class="menu">';
+            foreach ($cats as $c) {
+                $cat = new \App\Models\Category($c);
+                $out .= '<li><a href="' . $cat->url() . '">' . e($cat->getAttribute('name')) . '</a></li>';
+            }
+            $out .= '</ul>';
+            return $out;
+        }, 3600);
+        echo $html;
     }
 }
 

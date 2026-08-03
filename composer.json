@@ -21,6 +21,9 @@
         "filp/whoops": "^2.15",
         "symfony/var-dumper": "^6.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "*"
+    },
     "autoload": {
         "psr-4": {
             "App\\": "app/",
@@ -29,6 +32,11 @@
         "files": [
             "core/Support/helpers.php"
         ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
     },
     "config": {
         "optimize-autoloader": true,
@@ -43,6 +51,12 @@
             "@php -r \"if (!file_exists('storage/framework')) { mkdir('storage/framework', 0777, true); }\"",
             "@php -r \"if (!file_exists('storage/uploads')) { mkdir('storage/uploads', 0777, true); }\"",
             "@php -r \"if (!file_exists('database/database.sqlite')) { touch('database/database.sqlite'); chmod('database/database.sqlite', 0666); }\""
-        ]
-    }
+        ],
+        "test": "phpunit"
+    },
+    "repositories": [{
+        "name": "packagist",
+        "type": "composer",
+        "url": "https://repo.packagist.org"
+    }]
 }

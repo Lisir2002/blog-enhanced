@@ -39,6 +39,15 @@ class CommentController
             $sess->flash('error', '评论内容过长');
             return redirect($post->url() . '#comment-form');
         }
+        if ($authorEmail !== '' && !filter_var($authorEmail, FILTER_VALIDATE_EMAIL)) {
+            $sess->flashInput($request->only(['author_name', 'author_email', 'content', 'parent_id']));
+            $sess->flash('error', '邮箱格式不正确');
+            return redirect($post->url() . '#comment-form');
+        }
+        // 昵称长度限制，防止恶意超长字符串
+        if (mb_strlen($authorName) > 50) {
+            $authorName = mb_substr($authorName, 0, 50);
+        }
 
         $user = current_user();
         $status = 'pending';

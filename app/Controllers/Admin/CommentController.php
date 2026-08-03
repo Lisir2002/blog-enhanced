@@ -18,9 +18,9 @@ class CommentController
         $qb = Comment::query();
         $status = app(Request::class)->input('status');
         if ($status && in_array($status, ['pending', 'approved', 'spam'], true)) {
-            $qb->where('status', '=', $status);
+            $qb = $qb->where('status', '=', $status);
         }
-        $total = (clone $qb)->count();
+        $total = $qb->count();
         $items = $qb->orderBy('created_at', 'DESC')->limit($perPage)->offset($offset)->get();
         $totalPages = max(1, (int) ceil($total / $perPage));
 
