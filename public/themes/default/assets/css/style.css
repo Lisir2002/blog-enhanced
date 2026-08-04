@@ -233,6 +233,11 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
     flex-shrink: 0;
 }
 
+/* 遮罩层（仅移动端显示，桌面端隐藏） */
+.blog-popover__overlay {
+    display: none;
+}
+
 /* 气泡菜单 */
 .blog-popover {
     display: none;
@@ -267,6 +272,16 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
     border-top: 1px solid var(--c-border);
     transform: rotate(45deg);
     border-radius: 2px 0 0 0;
+}
+
+/* 顶部把手（仅移动端可见，桌面端隐藏） */
+.blog-popover__handle {
+    display: none;
+}
+
+/* 滚动内容区（桌面端普通容器，移动端 flex 滚动） */
+.blog-popover__scroll {
+    display: block;
 }
 
 /* 用户信息区 */
@@ -404,23 +419,104 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
     color: var(--c-text-muted);
 }
 
-/* 小屏适配 */
-@media (max-width: 640px) {
+/* 移动端：底部弹出 sheet */
+@media (max-width: 768px) {
+    /* 遮罩层 */
+    .blog-popover__overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0);
+        z-index: 290;
+        opacity: 0;
+        pointer-events: none;
+        transition: background 0.25s ease, opacity 0.25s ease;
+    }
+    .blog-popover__overlay.is-open {
+        background: rgba(0, 0, 0, 0.45);
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* sheet 主体 */
     .blog-popover {
         position: fixed;
         top: auto;
         bottom: 0;
-        right: 0;
         left: 0;
+        right: 0;
         width: 100%;
-        border-radius: 12px 12px 0 0;
-        animation: popoverSlideUp 0.2s ease;
+        /* 关键：内容少时不占满屏，内容多时限制最大高度 */
+        max-height: 90vh;
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+        animation: popoverSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 300;
+        overflow: visible;
+        /* 底部安全区（iPhone Home 条等） */
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
+    .blog-popover.is-open {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 隐藏桌面端三角箭头 */
     .blog-popover__arrow { display: none; }
+
+    /* 顶部把手 + 拖动提示 */
+    .blog-popover__handle {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 0 6px;
+        flex-shrink: 0;
+        cursor: default;
+        user-select: none;
+    }
+    .blog-popover__handle::before {
+        content: "";
+        width: 36px;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--c-border);
+    }
+    .blog-popover__handle-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--c-text-muted);
+    }
+
+    /* 中间内容区可滚动 */
+    .blog-popover__scroll {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    /* 菜单项触摸目标加大（≥44px） */
+    .blog-popover__item {
+        padding: 13px 16px;
+        font-size: 15px;
+    }
+    .blog-popover__user {
+        padding: 14px 16px 12px;
+    }
+    .blog-popover__avatar {
+        width: 44px;
+        height: 44px;
+    }
+
+    /* 调试面板在移动端展开时，限制子区域高度，外层 sheet 总体不超过 90vh */
+    .blog-popover__debug-body {
+        max-height: 40vh;
+    }
 }
 @keyframes popoverSlideUp {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
 }
 
 /* 搜索面板 */

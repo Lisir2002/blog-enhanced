@@ -16,10 +16,16 @@
     var searchInput  = document.querySelector('.blog-search__input');
 
     // ─── 头像气泡菜单 ──────────────────────────────────
-    var avatarToggle = document.getElementById('avatarToggle');
-    var userMenu     = document.getElementById('userMenu');
-    var debugToggle  = document.getElementById('debugToggle');
-    var debugBody    = document.getElementById('debugBody');
+    var avatarToggle   = document.getElementById('avatarToggle');
+    var userMenu       = document.getElementById('userMenu');
+    var userMenuOverlay= document.getElementById('userMenuOverlay');
+    var debugToggle    = document.getElementById('debugToggle');
+    var debugBody      = document.getElementById('debugBody');
+
+    // 判断当前是否为移动端布局（与 CSS 媒体查询断点一致）
+    function isMobileLayout() {
+        return window.matchMedia('(max-width: 768px)').matches;
+    }
 
     function openNav() {
         if (navDrawer) navDrawer.classList.add('is-open');
@@ -31,22 +37,40 @@
     function closeNav() {
         if (navDrawer) navDrawer.classList.remove('is-open');
         if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
-        document.body.style.overflow = '';
+        // 仅当用户菜单也关闭时才恢复滚动
+        if (!(userMenu && userMenu.classList.contains('is-open'))) {
+            document.body.style.overflow = '';
+        }
     }
 
     function toggleUserMenu() {
         if (!userMenu) return;
         var isOpen = userMenu.classList.toggle('is-open');
         if (avatarToggle) avatarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        if (userMenuOverlay) userMenuOverlay.classList.toggle('is-open', isOpen);
         if (isOpen) {
             if (searchPanel) searchPanel.classList.remove('is-open');
             closeNav();
+            // 移动端锁定 body 滚动
+            if (isMobileLayout()) {
+                document.body.style.overflow = 'hidden';
+            }
+        } else {
+            // 关闭时恢复滚动（若导航未打开）
+            if (!(navDrawer && navDrawer.classList.contains('is-open'))) {
+                document.body.style.overflow = '';
+            }
         }
     }
     function closeUserMenu() {
         if (userMenu) userMenu.classList.remove('is-open');
+        if (userMenuOverlay) userMenuOverlay.classList.remove('is-open');
         if (avatarToggle) avatarToggle.setAttribute('aria-expanded', 'false');
         if (debugBody) debugBody.classList.remove('is-open');
+        // 恢复滚动（若导航未打开）
+        if (!(navDrawer && navDrawer.classList.contains('is-open'))) {
+            document.body.style.overflow = '';
+        }
     }
 
     if (navToggle) navToggle.addEventListener('click', openNav);
@@ -55,6 +79,10 @@
     if (avatarToggle) avatarToggle.addEventListener('click', function (e) {
         e.stopPropagation();
         toggleUserMenu();
+    });
+    // 点击遮罩关闭（移动端）
+    if (userMenuOverlay) userMenuOverlay.addEventListener('click', function () {
+        closeUserMenu();
     });
 
     // 调试面板展开/收起
@@ -81,12 +109,27 @@
         });
     }
 
-    // 点击外部关闭气泡菜单
+    // 桌面端：点击外部关闭气泡菜单
     document.addEventListener('click', function (e) {
-        if (userMenu && userMenu.classList.contains('is-open')) {
+        if (userMenu && userMenu.classList.contains('is-open') && !isMobileLayout()) {
             var wrap = document.querySelector('.blog-header__avatar-wrap');
             if (wrap && !wrap.contains(e.target)) {
                 closeUserMenu();
+            }
+        }
+    });
+
+    // 桌面端 → 移动端切换时，同步恢复 body 滚动状态
+    window.matchMedia('(max-width: 768px)').addEventListener('change', function (e) {
+        if (!e.matches) {
+            // 切到桌面端：若菜单仍打开，恢复 body 滚动
+            if (userMenu && userMenu.classList.contains('is-open')) {
+                document.body.style.overflow = '';
+            }
+        } else {
+            // 切到移动端：若导航打开，保持滚动锁定
+            if (navDrawer && navDrawer.classList.contains('is-open')) {
+                document.body.style.overflow = 'hidden';
             }
         }
     });
