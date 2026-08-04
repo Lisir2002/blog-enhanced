@@ -3,13 +3,12 @@
 namespace Core\View;
 
 /**
- * 融合工具栏 — 将 Admin Bar 与 Debug Bar 整合为顶栏头像下拉菜单。
+ * 调试工具栏 — 仅在 debug=true 时显示，右下角齿轮图标。
  *
  * 显示逻辑：
- *   - 已登录用户 → 顶栏右侧显示头像，点击弹出下拉菜单（管理 Tab + 调试 Tab）
- *   - 调试模式开启（未登录）→ 顶栏右侧显示齿轮图标，点击弹出调试面板
- *   - 两者都不满足 → 不渲染
- *   - 后台管理页面 → 不渲染（避免干扰后台界面）
+ *   - debug=true 且非后台页面 → 右下角显示齿轮图标，点击弹出调试面板
+ *   - 已登录用户入口由前台顶栏头像/后台顶栏承担，此处不重复渲染头像
+ *   - debug=false 或后台页面 → 不渲染任何内容
  */
 class DebugBar
 {
@@ -44,12 +43,7 @@ class DebugBar
 
     public static function render(): string
     {
-        $user = current_user();
-        $isLoggedIn = (bool)$user;
-        $isDebug = config('app.debug', false);
-        $showBar = $isLoggedIn || $isDebug;
-
-        if (!$showBar || is_admin_route()) {
+        if (!config('app.debug', false) || is_admin_route()) {
             return '';
         }
 
@@ -61,133 +55,105 @@ class DebugBar
         ?>
 <style>
 #<?= $id ?>-wrap {
-  position:fixed;top:0;right:0;z-index:99999;
+  position:fixed;bottom:16px;right:16px;z-index:99999;
   font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 #<?= $id ?>-btn {
   display:flex;align-items:center;justify-content:center;
-  width:36px;height:36px;margin:8px 12px 0 0;margin-left:auto;
-  border-radius:50%;cursor:pointer;overflow:hidden;
-  border:2px solid transparent;transition:border-color 0.15s;
-  background:transparent;padding:0;float:right;
+  width:40px;height:40px;
+  border-radius:50%;cursor:pointer;
+  border:none;background:#1e293b;color:#94a3b8;
+  box-shadow:0 4px 14px rgba(0,0,0,0.25);
+  transition:background 0.15s,color 0.15s,transform 0.15s;
+  font-size:20px;padding:0;
 }
-#<?= $id ?>-btn:hover { border-color:#3b82f6; }
-#<?= $id ?>-btn img { width:100%;height:100%;object-fit:cover;display:block;border-radius:50%; }
-#<?= $id ?>-btn .gear {
-  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
-  font-size:18px;color:#64748b;border-radius:50%;
-  background:#f1f5f9;transition:background 0.15s;
-}
-#<?= $id ?>-btn .gear:hover { background:#e2e8f0; }
+#<?= $id ?>-btn:hover { background:#334155;color:#e2e8f0;transform:scale(1.05); }
 #<?= $id ?>-dropdown {
-  display:none;position:absolute;top:52px;right:12px;
-  width:280px;max-height:70vh;overflow-y:auto;
+  display:none;position:absolute;bottom:52px;right:0;
+  width:320px;max-height:70vh;overflow-y:auto;
   background:#1e293b;color:#e2e8f0;
-  border:1px solid #334155;border-radius:8px;
+  border:1px solid #334155;border-radius:10px;
   box-shadow:0 8px 30px rgba(0,0,0,0.3);
 }
 #<?= $id ?>-dropdown.is-open { display:block; }
-#<?= $id ?>-tabs {
-  display:flex;border-bottom:1px solid #334155;
-  border-radius:8px 8px 0 0;overflow:hidden;
+#<?= $id ?>-header {
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-bottom:1px solid #334155;
+  font-weight:600;font-size:13px;color:#f1f5f9;
 }
-#<?= $id ?>-tabs .tab {
-  flex:1;padding:10px 0;cursor:pointer;font-size:13px;text-align:center;
-  color:#94a3b8;border-bottom:2px solid transparent;
-  transition:color 0.15s,border-color 0.15s;
-  user-select:none;background:transparent;
+#<?= $id ?>-header .badge {
+  font-size:11px;font-weight:500;padding:2px 8px;
+  border-radius:999px;background:#334155;color:#94a3b8;
 }
-#<?= $id ?>-tabs .tab:hover { color:#e2e8f0;background:#0f172a; }
-#<?= $id ?>-tabs .tab.active { color:#3b82f6;border-bottom-color:#3b82f6;background:#0f172a; }
-#<?= $id ?>-dropdown .tab-content { padding:12px;display:none; }
-#<?= $id ?>-dropdown .tab-content.active { display:block; }
-#<?= $id ?>-dropdown .tab-content summary { padding:4px 0;cursor:pointer;font-weight:600; }
-#<?= $id ?>-dropdown .tab-content table { width:100%;border-collapse:collapse; }
-#<?= $id ?>-dropdown a { text-decoration:none; }
+#<?= $id ?>-body { padding:8px 0; }
+#<?= $id ?>-body details {
+  border-top:1px solid #334155;
+}
+#<?= $id ?>-body details:first-child { border-top:none; }
+#<?= $id ?>-body summary {
+  padding:8px 14px;cursor:pointer;font-weight:600;font-size:12px;
+  list-style:none;display:flex;align-items:center;gap:8px;
+  color:#60a5fa;user-select:none;
+}
+#<?= $id ?>-body summary::-webkit-details-marker { display:none; }
+#<?= $id ?>-body summary::before {
+  content:"▶";font-size:9px;transition:transform 0.15s;
+}
+#<?= $id ?>-body details[open] summary::before { transform:rotate(90deg); }
+#<?= $id ?>-body table { width:100%;border-collapse:collapse;font:11px/1.6 Menlo,Monaco,monospace; }
+#<?= $id ?>-body table td { padding:3px 14px;vertical-align:top; }
+#<?= $id ?>-body table td:first-child { color:#64748b;width:28px; }
+#<?= $id ?>-body table td:last-child { color:#cbd5e1;text-align:right;white-space:nowrap; }
+#<?= $id ?>-body .row { padding:4px 14px;font-size:12px;color:#cbd5e1; }
+#<?= $id ?>-body .empty { padding:20px;text-align:center;color:#64748b; }
 </style>
 <div id="<?= $id ?>-wrap">
-  <div id="<?= $id ?>-btn">
-    <?php if ($isLoggedIn): ?>
-    <img src="<?= e($user->avatarUrl(36)) ?>" alt="User">
-    <?php else: ?>
-    <span class="gear">⚙</span>
-    <?php endif; ?>
-  </div>
+  <button id="<?= $id ?>-btn" type="button" aria-label="调试面板" title="Debug">⚙</button>
   <div id="<?= $id ?>-dropdown">
-    <div id="<?= $id ?>-tabs">
-      <?php if ($isLoggedIn): ?>
-      <div class="tab active" data-tab="admin">管理</div>
-      <?php endif; ?>
-      <?php if ($isDebug): ?>
-      <div class="tab <?= !$isLoggedIn ? 'active' : '' ?>" data-tab="debug">调试</div>
-      <?php endif; ?>
+    <div id="<?= $id ?>-header">
+      <span>🛠 Debug</span>
+      <span class="badge">Q:<?= count(self::$queries) ?> (<?= $totalQueryMs ?>ms)</span>
+      <span class="badge">H:<?= count(self::$hooks) ?> (<?= $totalHookMs ?>ms)</span>
+      <span class="badge">T:<?= count(self::$templates) ?></span>
     </div>
-
-    <?php if ($isLoggedIn): ?>
-    <div class="tab-content active" id="<?= $id ?>-tab-admin">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:4px 0;">
-        <img src="<?= e($user->avatarUrl(36)) ?>" alt="" width="36" height="36" style="border-radius:50%;">
-        <div>
-          <div style="font-weight:600;font-size:14px;color:#f1f5f9"><?= e($user->displayName()) ?></div>
-          <div style="color:#64748b;font-size:11px"><?= e($user->getAttribute('role') ?? '') ?></div>
-        </div>
-      </div>
-      <div style="display:grid;gap:4px;">
-        <a href="<?= url('admin') ?>" style="display:flex;align-items:center;gap:10px;color:#e2e8f0;padding:8px 10px;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          <span>后台管理</span>
-        </a>
-        <a href="<?= url('admin/posts/create') ?>" style="display:flex;align-items:center;gap:10px;color:#e2e8f0;padding:8px 10px;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="18" y1="2" x2="2" y2="18"></line><path d="M7.5 20.5L19 9l-4-4L3.5 16.5 2 22l5.5-1.5z"></path></svg>
-          <span>写文章</span>
-        </a>
-        <a href="<?= url('logout') ?>" style="display:flex;align-items:center;gap:10px;color:#e2e8f0;padding:8px 10px;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          <span>退出</span>
-        </a>
-      </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($isDebug): ?>
-    <div class="tab-content <?= !$isLoggedIn ? 'active' : '' ?>" id="<?= $id ?>-tab-debug" style="font:12px/1.5 Menlo,Monaco,monospace">
-      <div style="display:flex;gap:12px;padding:4px 0 8px;color:#94a3b8;border-bottom:1px solid #334155;margin-bottom:8px;flex-wrap:wrap">
-        <strong style="color:#e2e8f0">Debug</strong>
-        <span>Queries: <?= count(self::$queries) ?> (<?= $totalQueryMs ?>ms)</span>
-        <span>Hooks: <?= count(self::$hooks) ?> (<?= $totalHookMs ?>ms)</span>
-        <span>Templates: <?= count(self::$templates) ?></span>
-      </div>
+    <div id="<?= $id ?>-body">
       <?php if (!empty(self::$queries)): ?>
-      <details style="border-bottom:1px solid #334155">
-        <summary style="color:#60a5fa">Query Log (<?= count(self::$queries) ?>)</summary>
+      <details open>
+        <summary>Query Log (<?= count(self::$queries) ?>)</summary>
         <table>
           <?php foreach (self::$queries as $i => $q): ?>
-          <tr><td style="color:#94a3b8;padding:2px 8px;width:24px"><?= $i + 1 ?></td><td style="padding:2px 8px"><?= e($q['sql']) ?></td><td style="color:#cbd5e1;padding:2px 8px;text-align:right;white-space:nowrap"><?= $q['ms'] ?>ms</td></tr>
+          <tr><td><?= $i + 1 ?></td><td style="word-break:break-all;color:#e2e8f0"><?= e($q['sql']) ?></td><td><?= $q['ms'] ?>ms</td></tr>
           <?php endforeach ?>
         </table>
       </details>
       <?php endif ?>
+
       <?php if (!empty(self::$hooks)): ?>
-      <details style="border-bottom:1px solid #334155">
+      <details>
         <summary style="color:#f59e0b">Hook Execution (<?= count(self::$hooks) ?>)</summary>
         <?php foreach (self::$hooks as $h): ?>
-        <div style="padding:2px 8px"><?= e($h['name']) ?> → <?= $h['callbacks'] ?> callbacks (<?= $h['ms'] ?>ms)</div>
+        <div class="row">
+          <?= e($h['name']) ?> → <span style="color:#f59e0b"><?= $h['callbacks'] ?> callbacks</span> (<?= $h['ms'] ?>ms)
+        </div>
         <?php endforeach ?>
       </details>
       <?php endif ?>
+
       <?php if (!empty(self::$templates)): ?>
       <details>
         <summary style="color:#10b981">Template Hierarchy (<?= count(self::$templates) ?>)</summary>
         <?php foreach (self::$templates as $t): ?>
-        <div style="padding:2px 8px"><?= e($t['hierarchy']) ?> → <strong style="color:#10b981"><?= e($t['resolved']) ?></strong></div>
+        <div class="row">
+          <?= e($t['hierarchy']) ?> → <strong style="color:#10b981"><?= e($t['resolved']) ?></strong>
+        </div>
         <?php endforeach ?>
       </details>
       <?php endif ?>
+
       <?php if (empty(self::$queries) && empty(self::$hooks) && empty(self::$templates)): ?>
-      <div style="padding:16px;text-align:center;color:#64748b">暂无调试数据</div>
+      <div class="empty">暂无调试数据</div>
       <?php endif; ?>
     </div>
-    <?php endif; ?>
   </div>
 </div>
 <script>
@@ -195,25 +161,11 @@ class DebugBar
   var wrap=document.getElementById('<?= $id ?>-wrap');
   var btn=document.getElementById('<?= $id ?>-btn');
   var dd=document.getElementById('<?= $id ?>-dropdown');
-  var tabs=dd.querySelectorAll('#<?= $id ?>-tabs .tab');
-  var contents=dd.querySelectorAll('.tab-content');
-
+  if(!wrap||!btn||!dd)return;
   btn.addEventListener('click',function(e){
     e.stopPropagation();
     dd.classList.toggle('is-open');
   });
-
-  tabs.forEach(function(tab){
-    tab.addEventListener('click',function(){
-      var id=tab.dataset.tab;
-      tabs.forEach(function(t){t.classList.remove('active');});
-      contents.forEach(function(c){c.classList.remove('active');});
-      tab.classList.add('active');
-      var target=document.getElementById('<?= $id ?>-tab-'+id);
-      if(target) target.classList.add('active');
-    });
-  });
-
   document.addEventListener('click',function(e){
     if(dd.classList.contains('is-open') && !wrap.contains(e.target)){
       dd.classList.remove('is-open');
@@ -221,7 +173,7 @@ class DebugBar
   });
 })();
 </script>
-        <?php
+<?php
         return (string) ob_get_clean();
     }
 }
