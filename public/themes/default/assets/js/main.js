@@ -9,11 +9,24 @@
     var navOverlay = document.getElementById('navOverlay');
     var navClose   = document.getElementById('navClose');
 
+    // ─── 搜索面板 ──────────────────────────────────────
+    var searchToggle = document.getElementById('searchToggle');
+    var searchPanel  = document.getElementById('searchPanel');
+    var searchClose  = document.getElementById('searchClose');
+    var searchInput  = document.querySelector('.blog-search__input');
+
+    // ─── 头像气泡菜单 ──────────────────────────────────
+    var avatarToggle = document.getElementById('avatarToggle');
+    var userMenu     = document.getElementById('userMenu');
+    var debugToggle  = document.getElementById('debugToggle');
+    var debugBody    = document.getElementById('debugBody');
+
     function openNav() {
         if (navDrawer) navDrawer.classList.add('is-open');
         if (navToggle) navToggle.setAttribute('aria-expanded', 'true');
         document.body.style.overflow = 'hidden';
         if (searchPanel) searchPanel.classList.remove('is-open');
+        closeUserMenu();
     }
     function closeNav() {
         if (navDrawer) navDrawer.classList.remove('is-open');
@@ -21,22 +34,43 @@
         document.body.style.overflow = '';
     }
 
+    function toggleUserMenu() {
+        if (!userMenu) return;
+        var isOpen = userMenu.classList.toggle('is-open');
+        if (avatarToggle) avatarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        if (isOpen) {
+            if (searchPanel) searchPanel.classList.remove('is-open');
+            closeNav();
+        }
+    }
+    function closeUserMenu() {
+        if (userMenu) userMenu.classList.remove('is-open');
+        if (avatarToggle) avatarToggle.setAttribute('aria-expanded', 'false');
+        if (debugBody) debugBody.classList.remove('is-open');
+    }
+
     if (navToggle) navToggle.addEventListener('click', openNav);
     if (navClose)  navClose.addEventListener('click', closeNav);
     if (navOverlay) navOverlay.addEventListener('click', closeNav);
+    if (avatarToggle) avatarToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleUserMenu();
+    });
 
-    // ─── 搜索面板展开/收起 ──────────────────────────────
-    var searchToggle = document.getElementById('searchToggle');
-    var searchPanel  = document.getElementById('searchPanel');
-    var searchClose  = document.getElementById('searchClose');
-    var searchInput  = document.querySelector('.blog-search__input');
+    // 调试面板展开/收起
+    if (debugToggle) debugToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (debugBody) debugBody.classList.toggle('is-open');
+    });
 
+    // 搜索
     if (searchToggle && searchPanel) {
         searchToggle.addEventListener('click', function () {
             var expanded = searchPanel.classList.toggle('is-open');
             if (expanded) {
                 if (searchInput) searchInput.focus();
                 closeNav();
+                closeUserMenu();
             }
         });
     }
@@ -46,17 +80,31 @@
             if (searchToggle) searchToggle.focus();
         });
     }
-    // Esc 关闭搜索/导航
+
+    // 点击外部关闭气泡菜单
+    document.addEventListener('click', function (e) {
+        if (userMenu && userMenu.classList.contains('is-open')) {
+            var wrap = document.querySelector('.blog-header__avatar-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                closeUserMenu();
+            }
+        }
+    });
+
+    // Esc 关闭所有面板
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            if (searchPanel && searchPanel.classList.contains('is-open')) {
-                searchPanel.classList.remove('is-open');
-                if (searchToggle) searchToggle.focus();
-            }
-            if (navDrawer && navDrawer.classList.contains('is-open')) {
-                closeNav();
-                if (navToggle) navToggle.focus();
-            }
+        if (e.key !== 'Escape') return;
+        if (searchPanel && searchPanel.classList.contains('is-open')) {
+            searchPanel.classList.remove('is-open');
+            if (searchToggle) searchToggle.focus();
+        }
+        if (navDrawer && navDrawer.classList.contains('is-open')) {
+            closeNav();
+            if (navToggle) navToggle.focus();
+        }
+        if (userMenu && userMenu.classList.contains('is-open')) {
+            closeUserMenu();
+            if (avatarToggle) avatarToggle.focus();
         }
     });
 
@@ -66,14 +114,12 @@
         themeToggle.addEventListener('click', function () {
             var html = document.documentElement;
             var current = html.getAttribute('data-theme');
-            // 三态切换：dark → light → auto(空)
             var next;
             if (current === 'dark') {
                 next = 'light';
             } else if (current === 'light') {
                 next = '';
             } else {
-                // 当前是 auto，根据系统偏好决定下一个
                 var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 next = prefersDark ? 'light' : 'dark';
             }
@@ -82,7 +128,6 @@
             } else {
                 html.removeAttribute('data-theme');
             }
-            // 持久化（1年）
             document.cookie = 'theme=' + next + ';path=/;max-age=31536000;samesite=lax';
         });
     }
