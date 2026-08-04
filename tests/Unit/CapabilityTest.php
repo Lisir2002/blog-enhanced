@@ -26,11 +26,11 @@ class CapabilityTest extends TestCase
         $this->assertFalse(Capability::has('senior_admin', 'manage_options'));
     }
 
-    public function test_editor_admin_can_review_others_cannot_delete(): void
+    public function test_editor_admin_can_review_and_delete_own(): void
     {
         $this->assertTrue(Capability::has('editor_admin', 'edit_posts'));
         $this->assertTrue(Capability::has('editor_admin', 'edit_others_posts'));
-        $this->assertFalse(Capability::has('editor_admin', 'delete_posts'));
+        $this->assertTrue(Capability::has('editor_admin', 'delete_posts'));
     }
 
     public function test_editor_writer_can_edit_but_not_publish(): void

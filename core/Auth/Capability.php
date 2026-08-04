@@ -20,7 +20,7 @@ class Capability
             'edit_posts', 'edit_others_posts', 'delete_posts', 'publish_posts',
             'moderate_comments', 'manage_categories', 'manage_users', 'upload_media',
         ],
-        'editor_admin'  => ['edit_posts', 'edit_others_posts', 'publish_posts', 'upload_media'],
+        'editor_admin'  => ['edit_posts', 'edit_others_posts', 'delete_posts', 'publish_posts', 'upload_media'],
         'editor_writer' => ['edit_posts', 'upload_media'],
         'visitor'       => ['read'],
     ];
@@ -35,12 +35,14 @@ class Capability
             return true;
         }
         if (in_array($capability, $caps, true)) {
-            // 细粒度校验：edit_posts → 只允许编辑自己的文章（editor_admin / editor_writer）
-            if ($capability === 'edit_posts' && $args !== null && in_array($role, ['editor_admin', 'editor_writer'], true)) {
-                $userId = $args instanceof \App\Models\User
-                    ? (int) $args->getAttribute('id')
-                    : (is_array($args) ? (int) ($args['author_id'] ?? 0) : 0);
-                return $userId > 0;
+            // 细粒度校验：edit_posts / delete_posts → 只允许操作自己的文章（editor_admin / editor_writer）
+            if ($args !== null && in_array($role, ['editor_admin', 'editor_writer'], true)) {
+                if ($capability === 'edit_posts' || $capability === 'delete_posts') {
+                    $userId = $args instanceof \App\Models\User
+                        ? (int) $args->getAttribute('id')
+                        : (is_array($args) ? (int) ($args['author_id'] ?? 0) : 0);
+                    return $userId > 0;
+                }
             }
             return true;
         }
