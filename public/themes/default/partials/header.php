@@ -27,19 +27,20 @@ $logoUrl = \App\Models\Option::get('logo_url', '');
                 <strong><?= e($siteName) ?></strong>
             <?php endif; ?>
         </a>
+
         <nav class="blog-nav" role="navigation" aria-label="主导航">
             <?php
             ob_start();
             echo wp_nav_menu(['theme_location' => 'primary', 'menu_class' => 'blog-nav__list', 'fallback' => true]);
             $navHtml = ob_get_clean();
-            // 替换默认菜单 class 为 BEM
             $navHtml = preg_replace('/<li class="menu-item(?:\s+current-menu-item)?"/', '<li class="blog-nav__item"', $navHtml);
             $navHtml = preg_replace('/<li class="menu-item current-menu-item([^"]*)"/', '<li class="blog-nav__item blog-nav__item--active$1"', $navHtml);
             $navHtml = preg_replace('/<a\s+href=/', '<a class="blog-nav__link" href=', $navHtml);
             echo $navHtml;
             ?>
         </nav>
-        <div class="blog-header__tools">
+
+        <div class="blog-header__right">
             <button class="blog-header__toggle" aria-label="菜单" aria-expanded="false" type="button">☰</button>
             <?php if (logged_in()): $user = current_user(); ?>
                 <a href="<?= url('/admin') ?>" class="blog-header__user" title="进入后台">
