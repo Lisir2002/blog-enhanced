@@ -2,15 +2,86 @@
 (function () {
     'use strict';
 
-    // Mobile menu toggle (BEM: blog-header__toggle + blog-nav)
-    var toggle = document.querySelector('.blog-header__toggle');
-    var nav = document.querySelector('.blog-nav');
-    if (toggle && nav) {
-        toggle.addEventListener('click', function () {
-            var expanded = nav.classList.toggle('is-open');
-            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    // ─── 导航面板展开/收起 ──────────────────────────────
+    var navToggle = document.getElementById('navToggle');
+    var navPanel  = document.getElementById('navPanel');
+    if (navToggle && navPanel) {
+        navToggle.addEventListener('click', function () {
+            var expanded = navPanel.classList.toggle('is-open');
+            navToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            // 关闭搜索面板
+            if (expanded && searchPanel) searchPanel.classList.remove('is-open');
         });
     }
+
+    // ─── 搜索面板展开/收起 ──────────────────────────────
+    var searchToggle = document.getElementById('searchToggle');
+    var searchPanel  = document.getElementById('searchPanel');
+    var searchClose  = document.getElementById('searchClose');
+    var searchInput  = document.querySelector('.blog-search__input');
+
+    if (searchToggle && searchPanel) {
+        searchToggle.addEventListener('click', function () {
+            var expanded = searchPanel.classList.toggle('is-open');
+            if (expanded) {
+                if (searchInput) searchInput.focus();
+                // 关闭导航面板
+                if (navPanel) navPanel.classList.remove('is-open');
+                if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+    if (searchClose) {
+        searchClose.addEventListener('click', function () {
+            searchPanel.classList.remove('is-open');
+            if (searchToggle) searchToggle.focus();
+        });
+    }
+    // Esc 关闭搜索
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && searchPanel && searchPanel.classList.contains('is-open')) {
+            searchPanel.classList.remove('is-open');
+            if (searchToggle) searchToggle.focus();
+        }
+    });
+
+    // ─── 主题切换（深色/浅色） ──────────────────────────
+    var themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', function () {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme');
+            // 三态切换：dark → light → auto(空)
+            var next;
+            if (current === 'dark') {
+                next = 'light';
+            } else if (current === 'light') {
+                next = '';
+            } else {
+                // 当前是 auto，根据系统偏好决定下一个
+                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                next = prefersDark ? 'light' : 'dark';
+            }
+            if (next) {
+                html.setAttribute('data-theme', next);
+            } else {
+                html.removeAttribute('data-theme');
+            }
+            // 持久化（1年）
+            document.cookie = 'theme=' + next + ';path=/;max-age=31536000;samesite=lax';
+        });
+    }
+
+    // ─── 点击外部关闭面板 ────────────────────────────────
+    document.addEventListener('click', function (e) {
+        // 导航面板：点击导航链接后自动收起
+        if (navPanel && navPanel.classList.contains('is-open')) {
+            if (!navPanel.contains(e.target) && navToggle && !navToggle.contains(e.target)) {
+                navPanel.classList.remove('is-open');
+                navToggle.setAttribute('aria-expanded', 'false');
+            }
+        }
+    });
 
     // Lazy-load images below the fold
     if ('loading' in HTMLImageElement.prototype) {
@@ -46,7 +117,7 @@
         });
     });
 
-    // Highlight current menu item more precisely
+    // Highlight current menu item
     var path = window.location.pathname;
     document.querySelectorAll('.blog-nav__item a').forEach(function (a) {
         var href = a.getAttribute('href');
@@ -56,7 +127,7 @@
         }
     });
 
-    // ─── Floating TOC ──────────────────────────────────────
+    // ─── Floating TOC ──────────────────────────────────
     (function () {
         var tocFloat = document.getElementById('floatingToc');
         if (!tocFloat) return;
@@ -65,20 +136,17 @@
         var links = tocFloat.querySelectorAll('.blog-toc__link');
         if (!toggle) return;
 
-        // Toggle expand/collapse
         toggle.addEventListener('click', function (e) {
             e.stopPropagation();
             tocFloat.classList.toggle('is-open');
         });
 
-        // Close panel when clicking outside
         document.addEventListener('click', function (e) {
             if (tocFloat.classList.contains('is-open') && !tocFloat.contains(e.target)) {
                 tocFloat.classList.remove('is-open');
             }
         });
 
-        // Scroll tracking with Intersection Observer
         var headings = [];
         links.forEach(function (link) {
             var href = link.getAttribute('href');
@@ -105,7 +173,6 @@
             headings.forEach(function (h) { observer.observe(h.el); });
         }
 
-        // Smooth scroll on link click
         links.forEach(function (link) {
             link.addEventListener('click', function (e) {
                 var href = link.getAttribute('href');
