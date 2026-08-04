@@ -54,8 +54,24 @@ class User extends Model
     public function avatarUrl(int $size = 80): string
     {
         $email = $this->getAttribute('email') ?? '';
-        $hash = md5(strtolower(trim($email)));
-        return "https://www.gravatar.com/avatar/{$hash}?s={$size}&d=identicon";
+        $role = $this->getAttribute('role') ?? 'visitor';
+        $defaultMap = [
+            'super_admin'   => 'super_admin',
+            'senior_admin'  => 'senior_admin',
+            'editor_admin'  => 'editor_admin',
+            'editor_writer' => 'editor_writer',
+            'visitor'       => 'visitor',
+        ];
+        $avatarKey = $defaultMap[$role] ?? 'visitor';
+        $defaultUrl = url("assets/avatars/{$avatarKey}.jpg");
+
+        if ($email) {
+            $hash = md5(strtolower(trim($email)));
+            $encodedDefault = urlencode($defaultUrl);
+            return "https://www.gravatar.com/avatar/{$hash}?s={$size}&d={$encodedDefault}";
+        }
+
+        return $defaultUrl;
     }
 
     public static function boot(): void
