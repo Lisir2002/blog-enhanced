@@ -3,8 +3,9 @@
 namespace App\Controllers\Admin;
 
 use App\Models\Category;
-use Core\Http\Response;
+use App\Support\Slugify;
 use Core\Http\Request;
+use Core\Http\Response;
 use Core\Http\Session;
 
 class CategoryController
@@ -27,12 +28,10 @@ class CategoryController
         }
         $slug = trim((string) $request->input('slug', ''));
         if ($slug === '') {
-            $slug = $this->slugify($name);
+            $slug = Slugify::make($name, 'cat');
         }
-        // unique
-        while (Category::query()->where('slug', '=', $slug)->first()) {
-            $slug .= '-' . bin2hex(random_bytes(2));
-        }
+        $slug = Slugify::unique($slug, 'categories');
+
         Category::query()->insert([
             'name'        => $name,
             'slug'        => $slug,
@@ -41,7 +40,6 @@ class CategoryController
             'created_at'  => date('Y-m-d H:i:s'),
             'updated_at'  => date('Y-m-d H:i:s'),
         ]);
-        // 清除菜单缓存
         app(\Core\Cache\CacheInterface::class)->delete('nav_menu');
         app(Session::class)->flash('success', '分类已创建');
         return redirect(route('admin.categories.index'));
@@ -53,15 +51,18 @@ class CategoryController
         $cat = Category::find($id);
         if (!$cat) return redirect(route('admin.categories.index'));
         $request = app(Request::class);
-        $data = [
+        $slug = trim((string) $request->input('slug', ''));
+        if ($slug === '') $slug = Slugify::make(trim((string) $request->input('name', '')), 'cat');
+        if ($slug !== $cat->getAttribute('slug')) {
+            $slug = Slugify::unique($slug, 'categories', 'slug', $id);
+        }
+        Category::query()->where('id', '=', $id)->update([
             'name'        => trim((string) $request->input('name', '')),
-            'slug'        => trim((string) $request->input('slug', '')),
+            'slug'        => $slug,
             'description' => trim((string) $request->input('description', '')),
             'parent_id'   => (int) $request->input('parent_id', 0),
             'updated_at'  => date('Y-m-d H:i:s'),
-        ];
-        if ($data['slug'] === '') $data['slug'] = $this->slugify($data['name']);
-        Category::query()->where('id', '=', $id)->update($data);
+        ]);
         app(\Core\Cache\CacheInterface::class)->delete('nav_menu');
         app(Session::class)->flash('success', '分类已更新');
         return redirect(route('admin.categories.index'));
@@ -77,17 +78,5 @@ class CategoryController
             app(Session::class)->flash('success', '分类已删除');
         }
         return redirect(route('admin.categories.index'));
-    }
-
-    private function slugify(string $text): string
-    {
-        $text = trim($text);
-        if (preg_match('/^[\x{4e00}-\x{9fa5}]+/u', $text)) {
-            return bin2hex(random_bytes(4));
-        }
-        $text = preg_replace('~[^\pL\d]+~u', '-', $text) ?? 'cat';
-        $text = preg_replace('/[^a-z0-9\-]/i', '', $text) ?? $text;
-        $text = strtolower(trim($text, '-'));
-        return $text !== '' ? $text : 'cat-' . bin2hex(random_bytes(3));
     }
 }

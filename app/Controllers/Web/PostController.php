@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Models\Category;
 use App\Models\Tag;
 use App\Models\Comment;
+use App\Models\Option;
 use Core\Http\Response;
 
 class PostController
@@ -30,7 +31,7 @@ class PostController
 
         do_action('post_loaded', $post);
 
-        $related = $this->related($post, 5);
+        $related = $post->related(5);
 
         return theme_view('single', [
             'post'      => $post,
@@ -43,21 +44,5 @@ class PostController
         ]);
     }
 
-    private function related(Post $post, int $limit = 5): array
-    {
-        $catId = $post->getAttribute('category_id');
-        if (!$catId) {
-            return [];
-        }
-        return Post::query()
-            ->where('category_id', '=', $catId)
-            ->where('status', '=', 'published')
-            ->where('id', '!=', $post->getAttribute('id'))
-            ->orderBy('published_at', 'DESC')
-            ->limit($limit)
-            ->get();
-    }
 }
 
-// Silence Option class resolution
-use App\Models\Option;

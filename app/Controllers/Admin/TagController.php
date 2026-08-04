@@ -3,8 +3,9 @@
 namespace App\Controllers\Admin;
 
 use App\Models\Tag;
-use Core\Http\Response;
+use App\Support\Slugify;
 use Core\Http\Request;
+use Core\Http\Response;
 use Core\Http\Session;
 
 class TagController
@@ -24,10 +25,9 @@ class TagController
         $name = trim((string) $request->input('name', ''));
         if ($name === '') return redirect(route('admin.tags.index'));
         $slug = trim((string) $request->input('slug', ''));
-        if ($slug === '') $slug = $this->slugify($name);
-        while (Tag::query()->where('slug', '=', $slug)->first()) {
-            $slug .= '-' . bin2hex(random_bytes(2));
-        }
+        if ($slug === '') $slug = Slugify::make($name, 'tag');
+        $slug = Slugify::unique($slug, 'tags');
+
         Tag::query()->insert([
             'name'       => $name,
             'slug'       => $slug,
@@ -51,16 +51,5 @@ class TagController
             app(Session::class)->flash('success', '标签已删除');
         }
         return redirect(route('admin.tags.index'));
-    }
-
-    private function slugify(string $text): string
-    {
-        if (preg_match('/^[\x{4e00}-\x{9fa5}]+/u', $text)) {
-            return bin2hex(random_bytes(4));
-        }
-        $text = preg_replace('~[^\pL\d]+~u', '-', $text) ?? 'tag';
-        $text = strtolower(preg_replace('/[^a-z0-9\-]/i', '', $text) ?? 'tag');
-        $text = trim($text, '-');
-        return $text !== '' ? $text : 'tag-' . bin2hex(random_bytes(3));
     }
 }

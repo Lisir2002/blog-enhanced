@@ -4,7 +4,7 @@ namespace Core;
 
 use Core\Http\Request;
 use Core\Http\Response;
-use Core\Http\Session;
+use Core\Providers\Provider;
 use Core\Support\Config;
 
 /**
@@ -13,6 +13,19 @@ use Core\Support\Config;
 class Application extends Container
 {
     private static ?Application $instance = null;
+
+    /** @var array<int, class-string<Provider>> */
+    protected array $providers = [
+        Providers\HttpProvider::class,
+        Providers\DatabaseProvider::class,
+        Providers\CacheProvider::class,
+        Providers\AuthProvider::class,
+        Providers\HookProvider::class,
+        Providers\ParsedownProvider::class,
+        Providers\ViewProvider::class,
+        Providers\PluginProvider::class,
+        Providers\RouteServiceProvider::class,
+    ];
 
     public function __construct()
     {
@@ -29,41 +42,32 @@ class Application extends Container
         return self::$instance;
     }
 
-    public function bootstrap(): void
+    /**
+     * 注册额外 Provider（供插件使用）。
+     *
+     * @param class-string<Provider> $providerClass
+     */
+    public function registerProvider(string $providerClass): void
     {
-        $this->registerCoreServices();
-        $this->loadHelpers();
-        $this->loadRoutes();
-        $this->loadTheme();
-        $this->loadPlugins();
+        $this->providers[] = $providerClass;
     }
 
-    private function registerCoreServices(): void
+    public function bootstrap(): void
     {
-        $this->singleton(Session::class);
-        $this->singleton(Request::class, fn() => Request::capture());
-        $this->singleton(Router::class);
-        $this->singleton(\Core\View\ViewRenderer::class);
-        $this->singleton(\Core\View\ThemeManager::class);
-        $this->singleton(\Core\Database\Connection::class);
-        $this->singleton(\Core\Hook\Action::class);
-        $this->singleton(\Core\Hook\Filter::class);
-        $this->singleton(\Core\Plugin\PluginManager::class);
-        $this->singleton(\Core\Auth\AuthManager::class);
-        $this->singleton(\Core\Cache\FileCache::class);
-        $this->singleton(\Core\Cache\CacheInterface::class, fn () => $this->get(\Core\Cache\FileCache::class));
-        $this->singleton(\Core\Database\QueryBuilder::class);
-        $this->singleton(\App\Services\LoginRateLimiter::class);
-        $this->singleton(\Parsedown::class, function () {
-            $pd = new \Parsedown();
-            // 开启安全模式：转义用户提交的 Markdown 中的原始 HTML 标签与危险 URL
-            // （在 Parsedown 1.7 中 setSafeMode(true) 会过滤 <script>、on* 属性、javascript: URL）
-            $pd->setSafeMode(true);
-            return $pd;
-        });
+        $this->loadHelpers();
 
-        // Run 'init' hook before dispatch
-        do_action('init');
+        // Phase 1: register all services (binding only, no resolution)
+        $instances = [];
+        foreach ($this->providers as $providerClass) {
+            $provider = new $providerClass($this);
+            $provider->register();
+            $instances[] = $provider;
+        }
+
+        // Phase 2: boot all services (can safely resolve & use services)
+        foreach ($instances as $provider) {
+            $provider->boot();
+        }
     }
 
     private function loadHelpers(): void
@@ -74,71 +78,42 @@ class Application extends Container
         }
     }
 
-    private function loadRoutes(): void
-    {
-        $router = $this->get(Router::class);
-
-        // Register built-in middleware (class-based → container resolves with DI)
-        $router->middleware('auth', \Core\Http\Middleware\AuthMiddleware::class);
-        $router->middleware('admin', \Core\Http\Middleware\AdminMiddleware::class);
-        $router->middleware('csrf', \Core\Http\Middleware\CsrfMiddleware::class);
-        $router->middleware('guest', \Core\Http\Middleware\GuestMiddleware::class);
-
-        // Load admin & api routes first, then web routes last (catch-all must be final)
-        if (is_file(route_path('admin.php'))) {
-            $router->loadRoutes(route_path('admin.php'));
-        }
-        if (is_file(route_path('api.php'))) {
-            $router->loadRoutes(route_path('api.php'));
-        }
-        if (is_file(route_path('web.php'))) {
-            $router->loadRoutes(route_path('web.php'));
-        }
-    }
-
-    private function loadTheme(): void
-    {
-        $themeManager = $this->get(\Core\View\ThemeManager::class);
-        $themeManager->boot();
-    }
-
-    private function loadPlugins(): void
-    {
-        $pm = $this->get(\Core\Plugin\PluginManager::class);
-        $pm->boot();
-    }
-
+    /**
+     * 运行应用 — 捕获请求、分发路由、发送响应。
+     */
     public function run(): void
     {
-        $request = $this->get(Request::class);
-        $router = $this->get(Router::class);
         try {
-            $response = $router->dispatch($request->method(), $request->path());
+            $request = $this->get(Request::class);
+            $router = $this->get(Router::class);
+            $response = $router->dispatch($request->method, $request->path);
+            $response->send();
         } catch (\Throwable $e) {
-            // 记录异常日志（含请求上下文，便于排查）
-            \Core\Log\Log::error('Unhandled exception', [
-                'msg'   => $e->getMessage(),
-                'code'  => $e->getCode(),
-                'file'  => $e->getFile() . ':' . $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'uri'   => $_SERVER['REQUEST_URI'] ?? '',
-                'ip'    => $request->ip(),
-            ]);
-            $response = $this->handleException($e);
+            $this->handleException($e)->send();
         }
-        $response->send();
     }
 
     private function handleException(\Throwable $e): Response
     {
-        $debug = (bool) config('app.debug', false);
-        if ($debug) {
-            $resp = new Response();
-            $resp->setContentType('text/html');
-            $resp->setStatus(500);
+        // 记录异常日志
+        try {
+            \Core\Log\Log::error($e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+        } catch (\Throwable) {
+            // 日志本身失败时不影响响应
+        }
+
+        // 开发环境：显示完整错误信息
+        if (config('app.debug')) {
+            $resp = (new Response())
+                ->setContentType('text/html')
+                ->setStatus(500);
             $resp->setBody(sprintf(
-                "<h1>Server Error (500)</h1><p>%s (%d)</p><p>%s:%d</p><pre>%s</pre>",
+                '<h1>Server Error</h1><pre>%s</pre><pre>%s:%d</pre><pre>%s</pre>',
                 e($e->getMessage()),
+                e($e->getFile()),
                 $e->getCode(),
                 e($e->getFile()),
                 $e->getLine(),
