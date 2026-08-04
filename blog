@@ -5,11 +5,12 @@
  * Blog CMS CLI 入口
  *
  * 用法：
- *   php blog install          # 初始化 + 创建管理员
- *   php blog migrate          # 执行迁移
- *   php blog seed             # 填充种子数据
- *   php blog serve             # 启动开发服务器
- *   php blog make:controller   # 生成控制器
+ *   php blog install            # 初始化 + 创建管理员
+ *   php blog migrate             # 执行 pending 迁移
+ *   php blog migrate:status      # 查看迁移状态
+ *   php blog migrate:rollback    # 回滚最后一批迁移
+ *   php blog seed                # 填充种子数据
+ *   php blog serve               # 启动开发服务器
  */
 
 if (php_sapi_name() !== 'cli') {
@@ -38,18 +39,59 @@ $cli->add('serve', function ($args) {
 $cli->add('migrate', function ($args) {
     $app = new \Core\Application();
     $app->bootstrap();
-    $conn = $app->get(\Core\Database\Connection::class);
-    $schemaFile = $conn->isSqlite() ? 'schema.sqlite.sql' : 'schema.mysql.sql';
-    $schema = file_get_contents(database_path($schemaFile));
-    foreach (array_filter(array_map('trim', explode(';', $schema))) as $stmt) {
-        if ($stmt) {
-            $conn->pdo()->exec($stmt);
-            echo "✓ $stmt\n";
+    $migrator = new \Core\Database\Migrator($app->get(\Core\Database\Connection::class));
+
+    $ran = $migrator->run();
+    if (empty($ran)) {
+        echo "Nothing to migrate — all migrations are up to date.\n";
+    } else {
+        foreach ($ran as $file) {
+            echo "  ✓ Migrated: $file\n";
         }
+        echo "\n  " . count($ran) . " migration(s) executed.\n";
     }
-    echo "\nMigration complete.\n";
     return 0;
-}, '执行数据库迁移');
+}, '执行 pending 迁移');
+
+$cli->add('migrate:status', function ($args) {
+    $app = new \Core\Application();
+    $app->bootstrap();
+    $migrator = new \Core\Database\Migrator($app->get(\Core\Database\Connection::class));
+
+    $status = $migrator->status();
+    if (empty($status)) {
+        echo "No migrations found.\n";
+        return 0;
+    }
+
+    echo str_pad('Migration', 50) . str_pad('Status', 12) . "Batch\n";
+    echo str_repeat('-', 75) . "\n";
+    foreach ($status as $s) {
+        $name = substr($s['migration'], 0, 48);
+        $ran = $s['ran'] ? '✓ Ran' : '○ Pending';
+        $batch = $s['batch'] ?? '-';
+        echo str_pad($name, 50) . str_pad($ran, 12) . $batch . "\n";
+    }
+    return 0;
+}, '查看迁移状态');
+
+$cli->add('migrate:rollback', function ($args) {
+    $app = new \Core\Application();
+    $app->bootstrap();
+    $migrator = new \Core\Database\Migrator($app->get(\Core\Database\Connection::class));
+
+    $steps = (int) ($args[0] ?? 0);
+    $rolled = $migrator->rollback($steps);
+    if (empty($rolled)) {
+        echo "Nothing to rollback.\n";
+    } else {
+        foreach ($rolled as $file) {
+            echo "  ↻ Rolled back: $file\n";
+        }
+        echo "\n  " . count($rolled) . " migration(s) rolled back.\n";
+    }
+    return 0;
+}, '回滚最后一批迁移 (可选指定步数)');
 
 $cli->add('seed', function ($args) {
     include BLOG_ROOT . '/database/seeds/run.php';

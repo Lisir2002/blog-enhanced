@@ -3,6 +3,7 @@
 namespace Core\Providers;
 
 use Core\Database\Connection;
+use Core\Database\Migrator;
 use Core\Database\QueryBuilder;
 
 class DatabaseProvider extends Provider
@@ -11,5 +12,6 @@ class DatabaseProvider extends Provider
     {
         $this->app->singleton(Connection::class);
         $this->app->singleton(QueryBuilder::class);
+        $this->app->singleton(Migrator::class);
     }
 }

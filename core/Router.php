@@ -101,7 +101,7 @@ class Router
      * 给最近一条路由追加中间件 - 链式 API。
      * 或注册全局中间件：middleware('name', $handler)
      */
-    public function middleware(array|string $middleware, ?callable $handler = null): static
+    public function middleware(array|string $middleware, callable|string|null $handler = null): static
     {
         if ($handler !== null && is_string($middleware)) {
             $this->globalMiddleware[$middleware] = $handler;
