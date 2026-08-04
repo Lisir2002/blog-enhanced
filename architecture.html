@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Blog CMS 架构图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 40px 20px;
+    overflow-x: auto;
+  }
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 10px;
+    color: #58a6ff;
+  }
+  .subtitle {
+    text-align: center;
+    color: #8b949e;
+    margin-bottom: 40px;
+    font-size: 14px;
+  }
+  .diagram-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: #161b22;
+    border-radius: 12px;
+    padding: 40px;
+    border: 1px solid #30363d;
+    overflow-x: auto;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+    min-width: 900px;
+  }
+  .mermaid svg {
+    background: #0d1117 !important;
+  }
+  footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #484f58;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+  <h1>🏗️ Blog CMS 系统架构图</h1>
+  <p class="subtitle">Native PHP Multi-Author Blog CMS Architecture</p>
+
+  <div class="diagram-container">
+    <div class="mermaid">
+graph TB
+    subgraph 入口层 ["🌐 入口层 Entry Point"]
+        direction LR
+        Browser["🖥️ Browser"]
+        WebServer["⚙️ Web Server<br/>(Nginx/Apache)"]
+        IndexPhp["📄 public/index.php"]
+    end
+
+    subgraph 核心层 ["💎 核心框架 Core Framework"]
+        direction LR
+        Container["🔷 Container<br/>IoC 容器"]
+        Application["🔷 Application<br/>应用主类"]
+        Router["🔷 Router<br/>路由器"]
+    end
+
+    subgraph 服务提供者 ["📦 服务提供者 Providers"]
+        direction TB
+        subgraph "基础服务"
+            HttpProvider["HttpProvider"]
+            DatabaseProvider["DatabaseProvider"]
+            CacheProvider["CacheProvider"]
+        end
+        subgraph "核心扩展"
+            AuthProvider["AuthProvider"]
+            HookProvider["HookProvider"]
+            ViewProvider["ViewProvider"]
+        end
+        subgraph "高级服务"
+            RouteProvider["RouteServiceProvider"]
+            PluginProvider["PluginProvider"]
+            ThemeProvider["ThemeServiceProvider"]
+        end
+        subgraph "增强服务"
+            AdvancedProvider["AdvancedServiceProvider"]
+            EnhancedProvider["EnhancedServiceProvider"]
+            QueueProvider["QueueProvider"]
+        end
+    end
+
+    subgraph 中间件层 ["🔒 中间件 Middleware"]
+        direction LR
+        AuthMiddleware["Auth"]
+        CsrfMiddleware["CSRF"]
+        AdminMiddleware["Admin"]
+        SecurityMiddleware["Security"]
+        ThrottleMiddleware["Throttle"]
+        CorsMiddleware["CORS"]
+    end
+
+    subgraph 应用层 ["📝 应用层 Application"]
+        direction TB
+        subgraph "控制器 Controllers"
+            WebControllers["Web/*"]
+            AdminControllers["Admin/*"]
+            ApiControllers["Api/*"]
+        end
+        subgraph "模型 Models"
+            PostModel["Post"]
+            UserModel["User"]
+            CategoryModel["Category"]
+            TagModel["Tag"]
+            CommentModel["Comment"]
+        end
+        subgraph "服务 Services"
+            PostService["PostService"]
+            RateLimiter["LoginRateLimiter"]
+        end
+    end
+
+    subgraph 基础设施 ["⚡ 基础设施 Infrastructure"]
+        direction TB
+        subgraph "数据库 Database"
+            Connection["Connection<br/>SQLite/MySQL"]
+            QueryBuilder["QueryBuilder"]
+            ORM["Model ORM<br/>关联/预加载"]
+        end
+        subgraph "缓存 Cache"
+            FileCache["FileCache"]
+            RedisCache["RedisCache"]
+            ArrayCache["ArrayCache"]
+        end
+        subgraph "扩展系统 Extensions"
+            HookSystem["Action/Filter"]
+            PluginSystem["Plugin Manager"]
+            ThemeSystem["Theme Manager"]
+        end
+    end
+
+    Browser --> WebServer
+    WebServer --> IndexPhp
+    IndexPhp --> Application
+    Application --> Container
+    Application --> Router
+
+    Container -->|"依赖注入"| 服务提供者
+    Router -->|"分发"| 中间件层
+    中间件层 -->|"通过"| 应用层
+    应用层 -->|"使用"| 基础设施
+    服务提供者 -->|"注册"| 中间件层
+
+    Application -->|"bootstrap()"| 服务提供者
+    ThemeSystem -->|"视图渲染"| WebControllers
+    PluginSystem -->|"扩展"| HookSystem
+    PostService -->|"CRUD"| ORM
+    ORM -->|"查询"| QueryBuilder
+    QueryBuilder -->|"执行"| Connection
+    CacheProvider -->|"管理"| 缓存 Cache
+
+    classDef entryNode fill:#1f6feb,stroke:#58a6ff,color:#fff,stroke-width:2px;
+    classDef coreNode fill:#8957e5,stroke:#bc8cff,color:#fff,stroke-width:2px;
+    classDef providerNode fill:#0d5e7a,stroke:#39c5cf,color:#fff,stroke-width:1px;
+    classDef middlewareNode fill:#9e6a03,stroke:#d29922,color:#fff,stroke-width:2px;
+    classDef appNode fill:#1f8a4c,stroke:#3fb950,color:#fff,stroke-width:2px;
+    classDef infraNode fill:#3d24c7,stroke:#a371f7,color:#fff,stroke-width:1px;
+
+    class Browser,WebServer,IndexPhp entryNode;
+    class Container,Application,Router coreNode;
+    class HttpProvider,DatabaseProvider,CacheProvider,AuthProvider,HookProvider,ViewProvider,RouteProvider,PluginProvider,ThemeProvider,AdvancedProvider,EnhancedProvider,QueueProvider providerNode;
+    class AuthMiddleware,CsrfMiddleware,AdminMiddleware,SecurityMiddleware,ThrottleMiddleware,CorsMiddleware middlewareNode;
+    class WebControllers,AdminControllers,ApiControllers,PostModel,UserModel,CategoryModel,TagModel,CommentModel,PostService,RateLimiter appNode;
+    class Connection,QueryBuilder,ORM,FileCache,RedisCache,ArrayCache,HookSystem,PluginSystem,ThemeSystem infraNode;
+
+    style 入口层 fill:#0d1117,stroke:#58a6ff,stroke-width:2px
+    style 核心层 fill:#0d1117,stroke:#bc8cff,stroke-width:2px
+    style 服务提供者 fill:#0d1117,stroke:#39c5cf,stroke-width:1px
+    style 中间件层 fill:#0d1117,stroke:#d29922,stroke-width:2px
+    style 应用层 fill:#0d1117,stroke:#3fb950,stroke-width:2px
+    style 基础设施 fill:#0d1117,stroke:#a371f7,stroke-width:1px
+    style 基础服务 fill:#0d1117,stroke:#39c5cf,stroke-width:1px
+    style 核心扩展 fill:#0d1117,stroke:#39c5cf,stroke-width:1px
+    style 高级服务 fill:#0d1117,stroke:#39c5cf,stroke-width:1px
+    style 增强服务 fill:#0d1117,stroke:#39c5cf,stroke-width:1px
+    style 控制器 Controllers fill:#0d1117,stroke:#3fb950,stroke-width:1px
+    style 模型 Models fill:#0d1117,stroke:#3fb950,stroke-width:1px
+    style 服务 Services fill:#0d1117,stroke:#3fb950,stroke-width:1px
+    style 数据库 Database fill:#0d1117,stroke:#a371f7,stroke-width:1px
+    style 缓存 Cache fill:#0d1117,stroke:#a371f7,stroke-width:1px
+    style 扩展系统 Extensions fill:#0d1117,stroke:#a371f7,stroke-width:1px
+
+    linkStyle 0 stroke:#58a6ff,stroke-width:2px
+    linkStyle 1 stroke:#bc8cff,stroke-width:2px
+    linkStyle 2 stroke:#39c5cf,stroke-width:1px
+    linkStyle 3 stroke:#d29922,stroke-width:2px
+    linkStyle 4 stroke:#3fb950,stroke-width:1px
+    linkStyle 5 stroke:#a371f7,stroke-width:1px
+    linkStyle 6 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 7 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 8 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 9 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 10 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 11 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 12 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 13 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 14 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+    linkStyle 15 stroke:#8b949e,stroke-width:1px,stroke-dasharray:5,5
+  </div>
+
+  <footer>
+    Blog CMS Architecture v1.0 | 基于 Mermaid.js 渲染
+  </footer>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        primaryColor: '#1f6feb',
+        primaryTextColor: '#c9d1d9',
+        primaryBorderColor: '#58a6ff',
+        lineColor: '#30363d',
+        secondaryColor: '#0d1117',
+        tertiaryColor: '#0d1117',
+        background: '#0d1117',
+        mainBkg: '#0d1117',
+        nodeBorder: '#30363d',
+        clusterBkg: '#0d1117',
+        titleColor: '#c9d1d9',
+        edgeLabelBackground: '#0d1117',
+        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif'
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 15,
+        htmlLabels: true
+      }
+    });
+  </script>
+</body>
+</html>
