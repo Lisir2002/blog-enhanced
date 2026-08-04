@@ -11,6 +11,7 @@ class SettingController
 {
     public function index(): Response
     {
+        can_or_403('manage_options');
         $settings = [
             'site_name'        => Option::get('site_name', config('app.name')),
             'site_description' => Option::get('site_description', ''),
@@ -32,6 +33,7 @@ class SettingController
 
     public function save(): Response
     {
+        can_or_403('manage_options');
         $request = app(Request::class);
         $sess = app(Session::class);
         $keys = [

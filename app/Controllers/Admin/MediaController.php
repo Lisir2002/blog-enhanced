@@ -11,6 +11,7 @@ class MediaController
 {
     public function index(): Response
     {
+        can_or_403('upload_media');
         $page = max(1, (int) app(Request::class)->input('page', 1));
         $perPage = 24;
         $offset = ($page - 1) * $perPage;
@@ -29,6 +30,7 @@ class MediaController
 
     public function upload(): Response
     {
+        can_or_403('upload_media');
         $request = app(Request::class);
         $sess = app(Session::class);
         $file = $request->file('file');
@@ -76,6 +78,7 @@ class MediaController
 
     public function delete(array $params): Response
     {
+        can_or_403('upload_media');
         $id = (int) $params['id'];
         $media = Media::find($id);
         if ($media) {

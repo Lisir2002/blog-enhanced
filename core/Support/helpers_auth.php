@@ -23,3 +23,16 @@ if (!function_exists('can')) {
         return app(\Core\Auth\AuthManager::class)->can($capability, $args);
     }
 }
+
+if (!function_exists('can_or_403')) {
+    function can_or_403(string $capability, $args = null): void
+    {
+        if (!can($capability, $args)) {
+            $response = (new \Core\Http\Response())
+                ->setBody('Forbidden. Required capability: ' . $capability)
+                ->setStatus(403);
+            $response->send();
+            exit;
+        }
+    }
+}

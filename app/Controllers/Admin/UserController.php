@@ -11,6 +11,7 @@ class UserController
 {
     public function index(): Response
     {
+        can_or_403('manage_users');
         $users = User::query()->orderBy('created_at', 'DESC')->get();
         return view('admin.users.index', [
             'users'     => $users,
@@ -20,6 +21,7 @@ class UserController
 
     public function create(): Response
     {
+        can_or_403('manage_users');
         return view('admin.users.form', [
             'user'      => null,
             'pageTitle' => '添加用户',
@@ -29,12 +31,13 @@ class UserController
 
     public function store(): Response
     {
+        can_or_403('manage_users');
         $request = app(Request::class);
         $sess = app(Session::class);
         $username = trim((string) $request->input('username', ''));
         $email = trim((string) $request->input('email', ''));
         $password = (string) $request->input('password', '');
-        $role = (string) $request->input('role', 'subscriber');
+        $role = (string) $request->input('role', 'visitor');
 
         if ($username === '' || $email === '' || strlen($password) < 6) {
             $sess->flash('error', '用户名/邮箱不能为空，密码至少6位');
@@ -54,7 +57,7 @@ class UserController
             'email'       => $email,
             'password'    => password_hash($password, PASSWORD_BCRYPT),
             'display_name'=> trim((string) $request->input('display_name', '')) ?: $username,
-            'role'        => in_array($role, array_keys(\Core\Auth\Capability::roles()), true) ? $role : 'subscriber',
+            'role'        => in_array($role, array_keys(\Core\Auth\Capability::roles()), true) ? $role : 'visitor',
             'bio'         => trim((string) $request->input('bio', '')),
             'url'         => trim((string) $request->input('url', '')),
             'status'      => 'active',
@@ -68,6 +71,7 @@ class UserController
 
     public function edit(array $params): Response
     {
+        can_or_403('manage_users');
         $user = User::find((int) $params['id']);
         if (!$user) return redirect(route('admin.users.index'));
         return view('admin.users.form', [
@@ -79,6 +83,7 @@ class UserController
 
     public function update(array $params): Response
     {
+        can_or_403('manage_users');
         $id = (int) $params['id'];
         $user = User::find($id);
         if (!$user) return redirect(route('admin.users.index'));
@@ -87,7 +92,7 @@ class UserController
         $data = [
             'email'        => trim((string) $request->input('email', '')),
             'display_name' => trim((string) $request->input('display_name', '')),
-            'role'         => in_array($request->input('role'), array_keys(\Core\Auth\Capability::roles()), true) ? $request->input('role') : 'subscriber',
+            'role'         => in_array($request->input('role'), array_keys(\Core\Auth\Capability::roles()), true) ? $request->input('role') : 'visitor',
             'bio'          => trim((string) $request->input('bio', '')),
             'url'          => trim((string) $request->input('url', '')),
             'updated_at'   => date('Y-m-d H:i:s'),
@@ -107,6 +112,7 @@ class UserController
 
     public function delete(array $params): Response
     {
+        can_or_403('manage_users');
         $id = (int) $params['id'];
         if ($id === (int) current_user()->getAttribute('id')) {
             app(Session::class)->flash('error', '不能删除自己');

@@ -17,11 +17,12 @@ class Capability
     public const MATRIX = [
         'super_admin'   => ['*'],
         'senior_admin'  => [
+            'read', 'dashboard',
             'edit_posts', 'edit_others_posts', 'delete_posts', 'publish_posts',
             'moderate_comments', 'manage_categories', 'manage_users', 'upload_media',
         ],
-        'editor_admin'  => ['edit_posts', 'edit_others_posts', 'delete_posts', 'publish_posts', 'upload_media'],
-        'editor_writer' => ['edit_posts', 'upload_media'],
+        'editor_admin'  => ['read', 'dashboard', 'edit_posts', 'edit_others_posts', 'delete_posts', 'publish_posts', 'upload_media'],
+        'editor_writer' => ['read', 'dashboard', 'edit_posts', 'upload_media'],
         'visitor'       => ['read'],
     ];
 

@@ -12,6 +12,7 @@ class ThemeController
 {
     public function index(): Response
     {
+        can_or_403('switch_themes');
         $theme = app(ThemeManager::class);
         $themes = $theme->listThemes();
         $active = $theme->activeTheme();
@@ -25,6 +26,7 @@ class ThemeController
 
     public function activate(array $params): Response
     {
+        can_or_403('switch_themes');
         $name = $params['name'] ?? '';
         $theme = app(ThemeManager::class);
         try {
@@ -39,6 +41,7 @@ class ThemeController
 
     public function upload(): Response
     {
+        can_or_403('switch_themes');
         $request = app(Request::class);
         $sess = app(Session::class);
         $file = $request->file('theme_zip');
@@ -63,6 +66,7 @@ class ThemeController
 
     public function delete(array $params): Response
     {
+        can_or_403('switch_themes');
         $name = $params['name'] ?? '';
         $theme = app(ThemeManager::class);
         if ($theme->deleteTheme($name)) {

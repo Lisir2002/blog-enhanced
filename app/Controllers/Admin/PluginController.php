@@ -11,6 +11,7 @@ class PluginController
 {
     public function index(): Response
     {
+        can_or_403('activate_plugins');
         $pm = app(PluginManager::class);
         $plugins = $pm->listPlugins();
         $active = $pm->getActiveList();
@@ -24,6 +25,7 @@ class PluginController
 
     public function activate(array $params): Response
     {
+        can_or_403('activate_plugins');
         $name = $params['name'] ?? '';
         $pm = app(PluginManager::class);
         try {
@@ -37,6 +39,7 @@ class PluginController
 
     public function deactivate(array $params): Response
     {
+        can_or_403('activate_plugins');
         $name = $params['name'] ?? '';
         $pm = app(PluginManager::class);
         try {
@@ -50,6 +53,7 @@ class PluginController
 
     public function upload(): Response
     {
+        can_or_403('activate_plugins');
         $request = app(Request::class);
         $sess = app(Session::class);
         $file = $request->file('plugin_zip');
@@ -74,6 +78,7 @@ class PluginController
 
     public function delete(array $params): Response
     {
+        can_or_403('activate_plugins');
         $name = $params['name'] ?? '';
         $pm = app(PluginManager::class);
         if ($pm->deletePlugin($name)) {

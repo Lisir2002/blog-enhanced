@@ -18,6 +18,7 @@ class PostController
 
     public function index(): Response
     {
+        can_or_403('edit_posts');
         $request = app(Request::class);
         $page = max(1, (int) $request->input('page', 1));
         $perPage = 20;
@@ -49,6 +50,7 @@ class PostController
 
     public function create(): Response
     {
+        can_or_403('edit_posts');
         $categories = Category::all();
         return view('admin.posts.form', [
             'post'       => null,
@@ -60,6 +62,7 @@ class PostController
 
     public function store(): Response
     {
+        can_or_403('edit_posts');
         $request = app(Request::class);
         $sess = app(Session::class);
 
@@ -85,6 +88,7 @@ class PostController
 
     public function edit(array $params): Response
     {
+        can_or_403('edit_posts');
         $id = (int) $params['id'];
         $post = Post::find($id);
         if (!$post) {
@@ -105,6 +109,7 @@ class PostController
 
     public function update(array $params): Response
     {
+        can_or_403('edit_posts');
         $id = (int) $params['id'];
         $post = Post::find($id);
         if (!$post) {
@@ -135,6 +140,7 @@ class PostController
 
     public function delete(array $params): Response
     {
+        can_or_403('delete_posts');
         $id = (int) $params['id'];
         $sess = app(Session::class);
 

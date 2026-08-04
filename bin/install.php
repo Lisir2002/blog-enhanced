@@ -106,7 +106,7 @@ if ($existing) {
         'email'        => $adminEmail,
         'password'     => password_hash($adminPass, PASSWORD_BCRYPT),
         'display_name' => '管理员',
-        'role'         => 'admin',
+        'role'         => 'super_admin',
         'status'       => 'active',
         'bio'          => '',
         'created_at'   => date('Y-m-d H:i:s'),

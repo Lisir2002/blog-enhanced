@@ -12,6 +12,7 @@ class DashboardController
 {
     public function index(): Response
     {
+        can_or_403('read');
         $postCount = Post::query()->count();
         $publishedCount = Post::query()->where('status', '=', 'published')->count();
         $draftCount = Post::query()->where('status', '=', 'draft')->count();

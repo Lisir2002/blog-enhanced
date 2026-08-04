@@ -12,6 +12,7 @@ class CategoryController
 {
     public function index(): Response
     {
+        can_or_403('manage_categories');
         $categories = Category::query()->orderBy('name', 'ASC')->get();
         return view('admin.categories.index', [
             'categories' => $categories,
@@ -21,6 +22,7 @@ class CategoryController
 
     public function store(): Response
     {
+        can_or_403('manage_categories');
         $request = app(Request::class);
         $name = trim((string) $request->input('name', ''));
         if ($name === '') {
@@ -47,6 +49,7 @@ class CategoryController
 
     public function update(array $params): Response
     {
+        can_or_403('manage_categories');
         $id = (int) $params['id'];
         $cat = Category::find($id);
         if (!$cat) return redirect(route('admin.categories.index'));
@@ -70,6 +73,7 @@ class CategoryController
 
     public function delete(array $params): Response
     {
+        can_or_403('manage_categories');
         $id = (int) $params['id'];
         $cat = Category::find($id);
         if ($cat) {

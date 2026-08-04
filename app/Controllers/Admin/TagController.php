@@ -12,6 +12,7 @@ class TagController
 {
     public function index(): Response
     {
+        can_or_403('manage_categories');
         $tags = Tag::query()->orderBy('name', 'ASC')->get();
         return view('admin.tags.index', [
             'tags'      => $tags,
@@ -21,6 +22,7 @@ class TagController
 
     public function store(): Response
     {
+        can_or_403('manage_categories');
         $request = app(Request::class);
         $name = trim((string) $request->input('name', ''));
         if ($name === '') return redirect(route('admin.tags.index'));
@@ -40,6 +42,7 @@ class TagController
 
     public function delete(array $params): Response
     {
+        can_or_403('manage_categories');
         $id = (int) $params['id'];
         $tag = Tag::find($id);
         if ($tag) {
