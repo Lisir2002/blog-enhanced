@@ -8,7 +8,7 @@ namespace Core\Auth;
  * 角色等级（从高到低）：
  *   super_admin  超级管理员 — 所有权限
  *   senior_admin 高级管理员 — 管理类操作（编辑他人文章、管理分类、审核评论、管理用户）
- *   editor_admin 编辑管理员 — 编辑/发布自己的文章、上传媒体
+ *   editor_admin 编辑管理员 — 审核其他写手的文章、拒绝发布、编辑/发布自己的文章、上传媒体
  *   editor_writer 编辑写手 — 编辑自己的文章（不能发布）、上传媒体
  *   visitor      一位访客 — 仅可阅读
  */
@@ -20,7 +20,7 @@ class Capability
             'edit_posts', 'edit_others_posts', 'delete_posts', 'publish_posts',
             'moderate_comments', 'manage_categories', 'manage_users', 'upload_media',
         ],
-        'editor_admin'  => ['edit_posts', 'delete_posts', 'publish_posts', 'upload_media'],
+        'editor_admin'  => ['edit_posts', 'edit_others_posts', 'publish_posts', 'upload_media'],
         'editor_writer' => ['edit_posts', 'upload_media'],
         'visitor'       => ['read'],
     ];
