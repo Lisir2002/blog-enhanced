@@ -9,6 +9,7 @@ use Core\View\MenuManager;
 use Core\View\AssetManager;
 use Core\View\Shortcode;
 use Core\View\ThemeManager;
+use Core\View\DebugBar;
 use Core\View\Widget;
 use App\Models\Post;
 use App\Models\Category;
@@ -276,12 +277,18 @@ class ThemeSystemTest extends TestCase
         Conditional::reset();
     }
 
-    /* ─────────── 前端 Admin Bar ─────────── */
+    /* ─────────── 融合工具栏 (DebugBar) ─────────── */
 
-    public function test_admin_bar_returns_empty_when_not_logged_in(): void
+    public function test_debug_bar_empty_when_both_off(): void
     {
-        $html = render_admin_bar();
+        $config = $this->app->get(\Core\Support\Config::class);
+        $config->set('app.debug', false);
+
+        DebugBar::reset();
+        $html = DebugBar::render();
         $this->assertSame('', $html);
+
+        $config->set('app.debug', true);
     }
 
     /* ─────────── 模板存在性 ─────────── */

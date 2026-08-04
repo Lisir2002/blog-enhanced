@@ -485,10 +485,8 @@ if (!function_exists('wp_footer')) {
         // 2. Run wp_footer hook
         do_action('wp_footer');
 
-        // 3. Admin bar for logged-in users
-        if (logged_in() && !is_admin_route()) {
-            echo render_admin_bar();
-        }
+        // 3. 融合工具栏（Admin + Debug）
+        echo \Core\View\DebugBar::render();
     }
 }
 
@@ -568,27 +566,4 @@ if (!function_exists('esc_url')) {
     }
 }
 
-/* ═══════════════ Admin Bar ═══════════════ */
 
-if (!function_exists('render_admin_bar')) {
-    function render_admin_bar(): string
-    {
-        $user = current_user();
-        if (!$user) {
-            return '';
-        }
-        $items = [
-            '<a href="' . url('admin') . '">后台</a>',
-            '<a href="' . url('admin/posts/create') . '">写文章</a>',
-            '<a href="' . url('admin/media') . '">媒体</a>',
-            '<a href="' . url('logout') . '">退出</a>',
-        ];
-        return '<div class="admin-bar" style="position:fixed;top:0;left:0;right:0;z-index:99999;'
-            . 'background:#1e293b;color:#fff;padding:0 16px;display:flex;align-items:center;'
-            . 'height:32px;font-size:13px;gap:12px">'
-            . '<strong style="margin-right:auto">' . e($user->displayName()) . '</strong>'
-            . implode('', $items)
-            . '</div>'
-            . '<style>body{padding-top:32px !important}</style>';
-    }
-}

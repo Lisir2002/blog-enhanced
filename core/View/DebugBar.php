@@ -3,7 +3,13 @@
 namespace Core\View;
 
 /**
- * 主题调试器 — 开发模式下显示 Query 日志、Hook 执行、模板层级。
+ * 融合工具栏 — 将 Admin Bar 与 Debug Bar 整合为统一悬浮工具栏。
+ *
+ * 显示逻辑：
+ *   - 已登录用户 → 显示头像按钮 + 管理 Tab（后台/写文章/退出）
+ *   - 调试模式开启 → 显示调试 Tab（Query/Hook/Template 日志）
+ *   - 两者都不满足 → 不渲染
+ *   - 后台管理页面 → 不渲染（避免干扰后台界面）
  */
 class DebugBar
 {
@@ -38,13 +44,18 @@ class DebugBar
 
     public static function render(): string
     {
-        if (!config('app.debug', false)) return '';
-        if (is_admin_route()) return '';
+        $user = current_user();
+        $isLoggedIn = (bool)$user;
+        $isDebug = config('app.debug', false);
+        $showBar = $isLoggedIn || $isDebug;
 
-        $totalQueryMs = array_sum(array_column(self::$queries, 'ms'));
-        $totalHookMs = array_sum(array_column(self::$hooks, 'ms'));
+        if (!$showBar || is_admin_route()) {
+            return '';
+        }
 
         $id = 'debug-bar-' . bin2hex(random_bytes(4));
+        $totalQueryMs = array_sum(array_column(self::$queries, 'ms'));
+        $totalHookMs = array_sum(array_column(self::$hooks, 'ms'));
 
         ob_start();
         ?>
@@ -53,12 +64,13 @@ class DebugBar
   position:fixed;bottom:16px;right:16px;z-index:99999;
   width:44px;height:44px;border-radius:50%;
   background:#1e293b;color:#3b82f6;border:2px solid #3b82f6;
-  font:bold 16px/1 Menlo,monospace;cursor:pointer;
-  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);
   display:flex;align-items:center;justify-content:center;
   transition:transform 0.15s,box-shadow 0.15s;
+  overflow:hidden;padding:0;
 }
 #<?= $id ?>-btn:hover { transform:scale(1.1);box-shadow:0 6px 20px rgba(0,0,0,0.4); }
+#<?= $id ?>-btn img { width:100%;height:100%;object-fit:cover;display:block; }
 #<?= $id ?>-panel {
   position:fixed;bottom:0;left:0;right:0;z-index:99998;
   background:#1e293b;color:#e2e8f0;
@@ -69,48 +81,136 @@ class DebugBar
   box-shadow:0 -8px 30px rgba(0,0,0,0.3);
 }
 #<?= $id ?>-panel.is-open { display:block; }
-#<?= $id ?>-panel summary { padding:4px 12px;cursor:pointer;font-weight:600; }
+#<?= $id ?>-tabs {
+  display:flex;border-bottom:1px solid #334155;
+  background:#0f172a;position:sticky;top:0;z-index:1;
+}
+#<?= $id ?>-tabs .tab {
+  padding:10px 16px;cursor:pointer;font-size:13px;
+  color:#94a3b8;border-bottom:2px solid transparent;
+  transition:color 0.15s,border-color 0.15s;
+  user-select:none;
+}
+#<?= $id ?>-tabs .tab:hover { color:#e2e8f0; }
+#<?= $id ?>-tabs .tab.active { color:#3b82f6;border-bottom-color:#3b82f6; }
+#<?= $id ?>-panel .panel-content { padding:12px;display:none; }
+#<?= $id ?>-panel .panel-content.active { display:block; }
+#<?= $id ?>-panel summary { padding:4px 0;cursor:pointer;font-weight:600; }
 #<?= $id ?>-panel table { width:100%;border-collapse:collapse; }
 </style>
-<button id="<?= $id ?>-btn" onclick="(function(){
-  var p=document.getElementById('<?= $id ?>-panel'),b=document.getElementById('<?= $id ?>-btn');
-  p.classList.toggle('is-open');
-  b.textContent=p.classList.contains('is-open')?'✕':'⚙';
-})()" title="Toggle Debug Bar">⚙</button>
+<button id="<?= $id ?>-btn" title="工具栏">
+  <?php if ($isLoggedIn): ?>
+  <img src="<?= e($user->avatarUrl(44)) ?>" alt="User">
+  <?php else: ?>
+  <span style="font:bold 18px/1 Menlo,monospace">⚙</span>
+  <?php endif; ?>
+</button>
 <div id="<?= $id ?>-panel">
-  <div style="display:flex;gap:16px;padding:6px 12px;background:#0f172a;border-bottom:1px solid #334155">
-    <strong>Debug Bar</strong>
-    <span>Queries: <?= count(self::$queries) ?> (<?= $totalQueryMs ?>ms)</span>
-    <span>Hooks: <?= count(self::$hooks) ?> (<?= $totalHookMs ?>ms)</span>
-    <span>Templates: <?= count(self::$templates) ?></span>
+  <div id="<?= $id ?>-tabs">
+    <?php if ($isLoggedIn): ?>
+    <div class="tab active" data-tab="admin">管理</div>
+    <?php endif; ?>
+    <?php if ($isDebug): ?>
+    <div class="tab <?= !$isLoggedIn ? 'active' : '' ?>" data-tab="debug">调试</div>
+    <?php endif; ?>
   </div>
-  <?php if (!empty(self::$queries)): ?>
-  <details style="border-bottom:1px solid #334155">
-    <summary style="color:#60a5fa">Query Log (<?= count(self::$queries) ?>)</summary>
-    <table>
-      <?php foreach (self::$queries as $i => $q): ?>
-      <tr><td style="color:#94a3b8;padding:2px 12px;width:30px"><?= $i + 1 ?></td><td style="padding:2px 8px"><?= e($q['sql']) ?></td><td style="color:#cbd5e1;padding:2px 8px;text-align:right"><?= $q['ms'] ?>ms</td></tr>
+
+  <?php if ($isLoggedIn): ?>
+  <div class="panel-content active" id="<?= $id ?>-tab-admin">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:4px 0;">
+      <img src="<?= e($user->avatarUrl(36)) ?>" alt="" width="36" height="36" style="border-radius:50%;">
+      <div>
+        <div style="font-weight:600;font-size:14px;color:#f1f5f9"><?= e($user->displayName()) ?></div>
+        <div style="color:#64748b;font-size:11px"><?= e($user->getAttribute('role') ?? '') ?></div>
+      </div>
+    </div>
+    <div style="display:grid;gap:6px;">
+      <a href="<?= url('admin') ?>" style="display:flex;align-items:center;gap:10px;color:#e2e8f0;text-decoration:none;padding:8px 10px;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        <span>后台管理</span>
+      </a>
+      <a href="<?= url('admin/posts/create') ?>" style="display:flex;align-items:center;gap:10px;color:#e2e8f0;text-decoration:none;padding:8px 10px;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="18" y1="2" x2="2" y2="18"></line><path d="M7.5 20.5L19 9l-4-4L3.5 16.5 2 22l5.5-1.5z"></path></svg>
+        <span>写文章</span>
+      </a>
+      <a href="<?= url('logout') ?>" style="display:flex;align-items:center;gap:10px;color:#e2e8f0;text-decoration:none;padding:8px 10px;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <span>退出</span>
+      </a>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <?php if ($isDebug): ?>
+  <div class="panel-content <?= !$isLoggedIn ? 'active' : '' ?>" id="<?= $id ?>-tab-debug">
+    <div style="display:flex;gap:16px;padding:4px 0 8px;color:#94a3b8;border-bottom:1px solid #334155;margin-bottom:8px">
+      <strong style="color:#e2e8f0">Debug Bar</strong>
+      <span>Queries: <?= count(self::$queries) ?> (<?= $totalQueryMs ?>ms)</span>
+      <span>Hooks: <?= count(self::$hooks) ?> (<?= $totalHookMs ?>ms)</span>
+      <span>Templates: <?= count(self::$templates) ?></span>
+    </div>
+    <?php if (!empty(self::$queries)): ?>
+    <details style="border-bottom:1px solid #334155">
+      <summary style="color:#60a5fa">Query Log (<?= count(self::$queries) ?>)</summary>
+      <table>
+        <?php foreach (self::$queries as $i => $q): ?>
+        <tr><td style="color:#94a3b8;padding:2px 12px;width:30px"><?= $i + 1 ?></td><td style="padding:2px 8px"><?= e($q['sql']) ?></td><td style="color:#cbd5e1;padding:2px 8px;text-align:right"><?= $q['ms'] ?>ms</td></tr>
+        <?php endforeach ?>
+      </table>
+    </details>
+    <?php endif ?>
+    <?php if (!empty(self::$hooks)): ?>
+    <details style="border-bottom:1px solid #334155">
+      <summary style="color:#f59e0b">Hook Execution (<?= count(self::$hooks) ?>)</summary>
+      <?php foreach (self::$hooks as $h): ?>
+      <div style="padding:2px 12px"><?= e($h['name']) ?> → <?= $h['callbacks'] ?> callbacks (<?= $h['ms'] ?>ms)</div>
       <?php endforeach ?>
-    </table>
-  </details>
-  <?php endif ?>
-  <?php if (!empty(self::$hooks)): ?>
-  <details style="border-bottom:1px solid #334155">
-    <summary style="color:#f59e0b">Hook Execution (<?= count(self::$hooks) ?>)</summary>
-    <?php foreach (self::$hooks as $h): ?>
-    <div style="padding:2px 12px"><?= e($h['name']) ?> → <?= $h['callbacks'] ?> callbacks (<?= $h['ms'] ?>ms)</div>
-    <?php endforeach ?>
-  </details>
-  <?php endif ?>
-  <?php if (!empty(self::$templates)): ?>
-  <details>
-    <summary style="color:#10b981">Template Hierarchy (<?= count(self::$templates) ?>)</summary>
-    <?php foreach (self::$templates as $t): ?>
-    <div style="padding:2px 12px"><?= e($t['hierarchy']) ?> → <strong style="color:#10b981"><?= e($t['resolved']) ?></strong></div>
-    <?php endforeach ?>
-  </details>
-  <?php endif ?>
+    </details>
+    <?php endif ?>
+    <?php if (!empty(self::$templates)): ?>
+    <details>
+      <summary style="color:#10b981">Template Hierarchy (<?= count(self::$templates) ?>)</summary>
+      <?php foreach (self::$templates as $t): ?>
+      <div style="padding:2px 12px"><?= e($t['hierarchy']) ?> → <strong style="color:#10b981"><?= e($t['resolved']) ?></strong></div>
+      <?php endforeach ?>
+    </details>
+    <?php endif ?>
+    <?php if (empty(self::$queries) && empty(self::$hooks) && empty(self::$templates)): ?>
+    <div style="padding:16px;text-align:center;color:#64748b">暂无调试数据</div>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
 </div>
+<script>
+(function(){
+  var btn=document.getElementById('<?= $id ?>-btn');
+  var panel=document.getElementById('<?= $id ?>-panel');
+  var tabs=panel.querySelectorAll('#<?= $id ?>-tabs .tab');
+  var contents=panel.querySelectorAll('.panel-content');
+
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    panel.classList.toggle('is-open');
+  });
+
+  tabs.forEach(function(tab){
+    tab.addEventListener('click',function(){
+      var id=tab.dataset.tab;
+      tabs.forEach(function(t){t.classList.remove('active');});
+      contents.forEach(function(c){c.classList.remove('active');});
+      tab.classList.add('active');
+      var target=document.getElementById('<?= $id ?>-tab-'+id);
+      if(target) target.classList.add('active');
+    });
+  });
+
+  document.addEventListener('click',function(e){
+    if(panel.classList.contains('is-open') && !panel.contains(e.target) && e.target!==btn && !btn.contains(e.target)){
+      panel.classList.remove('is-open');
+    }
+  });
+})();
+</script>
         <?php
         return (string) ob_get_clean();
     }
