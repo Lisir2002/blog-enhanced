@@ -14,7 +14,7 @@ class GuestMiddleware implements MiddlewareInterface
         private AuthManager $auth,
     ) {}
 
-    public function handle(array $params): ?Response
+    public function handle(array $params, array $args = []): ?Response
     {
         if ($this->auth->check()) {
             return (new Response())->redirect(url('admin'));

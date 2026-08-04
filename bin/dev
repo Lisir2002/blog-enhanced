@@ -1,0 +1,52 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Blog CMS 本地开发启动脚本（避免 "php -S 参数记错 / router 忘写" 复发）
+ * Usage: php bin/dev [host:port]
+ *   Default: 127.0.0.1:8000
+ */
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+// 默认绑定 0.0.0.0 让容器/外连/反向代理都能访问；外部 IP 不被 ERR_CLEARTEXT_NOT_PERMITTED 限制
+$host = $argv[1] ?? '0.0.0.0:8000';
+// 启动信息展示仍以 localhost 给用户
+$displayHost = $host === '0.0.0.0:8000' ? '127.0.0.1:8000' : (str_starts_with($host, '0.0.0.0:') ? '127.0.0.1:' . explode(':', $host, 2)[1] : $host);
+
+// --- 环境检查 ---
+if (!file_exists($root . '/vendor/autoload.php')) {
+    echo "[dev] vendor missing, running: composer install\n";
+    passthru('composer install --working-dir=' . escapeshellarg($root), $code);
+    if ($code !== 0) { exit($code); }
+}
+if (!file_exists($root . '/.env')) {
+    echo "[dev] .env missing, copying from .env.example\n";
+    copy($root . '/.env.example', $root . '/.env');
+}
+if (!extension_loaded('pdo_sqlite') && !extension_loaded('pdo_mysql')) {
+    fwrite(STDERR, "[dev] ERROR: need pdo_sqlite or pdo_mysql extension\n");
+    exit(1);
+}
+
+// --- 同步 APP_URL 到启动 host:port（要写可访问的地址，不是 0.0.0.0） ---
+$envPath = $root . '/.env';
+$envContent = file_get_contents($envPath) ?: '';
+$appUrlHost = 'http://' . $displayHost;
+if (strpos($envContent, 'APP_URL=') === false) {
+    file_put_contents($envPath, "\n" . 'APP_URL=' . $appUrlHost . "\n", FILE_APPEND);
+} else {
+    $envContent = preg_replace('/^APP_URL=.*$/m', 'APP_URL=' . $appUrlHost, $envContent);
+    file_put_contents($envPath, $envContent);
+}
+
+// --- 启动 PHP 内置服务器 + router 脚本（即 public/index.php 兼作 router） ---
+echo "[dev] Starting PHP dev server on http://$displayHost (binding $host)\n";
+echo "[dev] (Ctrl+C to stop, APP_URL synced to .env)\n";
+$cmd = sprintf(
+    'php -S %s -t %s %s',
+    escapeshellarg($host),
+    escapeshellarg($root . '/public'),
+    escapeshellarg($root . '/public/index.php')
+);
+passthru($cmd, $exitCode);
+exit($exitCode);

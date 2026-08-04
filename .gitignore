@@ -19,6 +19,11 @@ composer.lock
 
 # Database (keep schema, ignore runtime SQLite)
 /database/database.sqlite
+database.sqlite
+
+# Development artifacts
+__PREVIEW_CARD_*.png
+architecture.html
 
 # OS files
 .DS_Store

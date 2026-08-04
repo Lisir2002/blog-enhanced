@@ -8,12 +8,13 @@ use Core\Http\Response;
 
 if (!function_exists('url')) {
     /**
-     * 生成绝对 URL。
+     * 生成 URL（相对路径）。
+     * 在预览容器中绝对路径会导致链接跳出代理，因此统一使用相对路径。
+     * 如需外部绝对 URL，请使用 config('app.url') 自行拼接。
      */
     function url(string $path = ''): string
     {
-        $base = rtrim(config('app.url', ''), '/');
-        return $base . '/' . ltrim($path, '/');
+        return '/' . ltrim($path, '/');
     }
 }
 

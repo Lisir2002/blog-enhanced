@@ -6,8 +6,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle) ?></title>
-    <link rel="stylesheet" href="<?= asset('themes/default/assets/css/style.css') ?>">
+    <title><?= e($pageTitle) ?> - <?= e(\App\Models\Option::get('site_name', config('app.name'))) ?></title>
+    <link rel="stylesheet" href="<?= url('themes/default/assets/css/style.css') ?>">
 </head>
 <body class="auth-page">
 <div class="auth-container">

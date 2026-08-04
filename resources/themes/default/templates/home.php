@@ -1,6 +1,6 @@
 <?php
 /**
- * Home template - 文章列表
+ * Home template - 布局 D：卡片式博客首页 (Grid Card Layout)
  * @var array $posts
  * @var int $page
  * @var int $totalPages
@@ -10,33 +10,37 @@
  */
 get_header();
 ?>
-<div class="container">
-    <div class="layout-grid">
-        <main class="content-area" role="main">
+<div class="blog-container">
+    <div class="blog-layout">
+        <main class="blog-layout__main" role="main">
             <?php if (empty($posts)): ?>
-                <div class="empty-state">
-                    <div class="icon">📝</div>
-                    <p>暂无文章，去后台发布第一篇吧！</p>
+                <div class="blog-empty-state">
+                    <div class="blog-empty-state__icon">📝</div>
+                    <p class="blog-empty-state__text">暂无文章，去后台发布第一篇吧！</p>
                 </div>
             <?php else: ?>
-                <div class="post-list">
+                <div class="blog-card-list">
                     <?php foreach ($posts as $r): $post = new \App\Models\Post($r); ?>
-                        <article class="<?= post_class() ?>">
-                            <div class="post-card-inner">
-                                <?php if ($post->getAttribute('cover')): ?>
-                                    <a href="<?= $post->url() ?>" class="post-thumb">
-                                        <img src="<?= e($post->getAttribute('cover')) ?>" alt="<?= e($post->getAttribute('title')) ?>" loading="lazy">
-                                    </a>
+                        <?php $cat = $post->category(); ?>
+                        <article class="blog-card <?= $post->getAttribute('cover') ? '' : 'blog-card--no-cover' ?>">
+                            <?php if ($post->getAttribute('cover')): ?>
+                                <a href="<?= $post->url() ?>" class="blog-card__cover">
+                                    <img src="<?= e($post->getAttribute('cover')) ?>" alt="<?= e($post->getAttribute('title')) ?>" loading="lazy">
+                                </a>
+                            <?php endif; ?>
+                            <div class="blog-card__body">
+                                <?php if ($cat): ?>
+                                    <a href="<?= $cat->url() ?>" class="blog-card__category"><?= e($cat->getAttribute('name')) ?></a>
                                 <?php endif; ?>
-                                <div class="body">
-                                    <h2 class="title"><a href="<?= $post->url() ?>"><?= e($post->getAttribute('title')) ?></a></h2>
-                                    <div class="post-meta">
-                                        <time datetime="<?= e($post->getAttribute('published_at') ?? $post->getAttribute('created_at')) ?>"><?= e(date('Y-m-d', strtotime($post->getAttribute('published_at') ?? $post->getAttribute('created_at')))) ?></time>
-                                        <?php $cat = $post->category(); if ($cat): ?>
-                                            <span class="cat-link"><a href="<?= $cat->url() ?>"><?= e($cat->getAttribute('name')) ?></a></span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <p class="excerpt"><?= e($post->excerpt(160)) ?></p>
+                                <h2 class="blog-card__title">
+                                    <a href="<?= $post->url() ?>"><?= e($post->getAttribute('title')) ?></a>
+                                </h2>
+                                <p class="blog-card__excerpt"><?= e($post->excerpt(160)) ?></p>
+                                <div class="blog-card__meta">
+                                    <time class="blog-card__date" datetime="<?= e($post->getAttribute('published_at') ?? $post->getAttribute('created_at')) ?>">
+                                        📅 <?= e(date('Y-m-d', strtotime($post->getAttribute('published_at') ?? $post->getAttribute('created_at')))) ?>
+                                    </time>
+                                    <span class="blog-card__views">👁 <?= (int) $post->getAttribute('views') ?></span>
                                 </div>
                             </div>
                         </article>
@@ -46,12 +50,11 @@ get_header();
                 <?= paginate_links([
                     'total'     => $totalPages,
                     'current'   => $page,
-                    'base'      => $page === 1 ? url('/page/%#%') : url('/page/%#%'),
+                    'base'      => url('/page/%#%'),
                 ]) ?>
             <?php endif; ?>
         </main>
         <?php get_sidebar(); ?>
     </div>
 </div>
-<?php
-get_footer();
+<?php get_footer(); ?>

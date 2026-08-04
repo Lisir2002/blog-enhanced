@@ -44,20 +44,50 @@ class DebugBar
         $totalQueryMs = array_sum(array_column(self::$queries, 'ms'));
         $totalHookMs = array_sum(array_column(self::$hooks, 'ms'));
 
+        $id = 'debug-bar-' . bin2hex(random_bytes(4));
+
         ob_start();
         ?>
-<div id="debug-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:99998;background:#1e293b;color:#e2e8f0;font:12px/1.5 Menlo,Monaco,monospace;max-height:300px;overflow:auto;border-top:2px solid #3b82f6">
+<style>
+#<?= $id ?>-btn {
+  position:fixed;bottom:16px;right:16px;z-index:99999;
+  width:44px;height:44px;border-radius:50%;
+  background:#1e293b;color:#3b82f6;border:2px solid #3b82f6;
+  font:bold 16px/1 Menlo,monospace;cursor:pointer;
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform 0.15s,box-shadow 0.15s;
+}
+#<?= $id ?>-btn:hover { transform:scale(1.1);box-shadow:0 6px 20px rgba(0,0,0,0.4); }
+#<?= $id ?>-panel {
+  position:fixed;bottom:0;left:0;right:0;z-index:99998;
+  background:#1e293b;color:#e2e8f0;
+  font:12px/1.5 Menlo,Monaco,monospace;
+  max-height:70vh;overflow:auto;
+  border-top:2px solid #3b82f6;
+  display:none;
+  box-shadow:0 -8px 30px rgba(0,0,0,0.3);
+}
+#<?= $id ?>-panel.is-open { display:block; }
+#<?= $id ?>-panel summary { padding:4px 12px;cursor:pointer;font-weight:600; }
+#<?= $id ?>-panel table { width:100%;border-collapse:collapse; }
+</style>
+<button id="<?= $id ?>-btn" onclick="(function(){
+  var p=document.getElementById('<?= $id ?>-panel'),b=document.getElementById('<?= $id ?>-btn');
+  p.classList.toggle('is-open');
+  b.textContent=p.classList.contains('is-open')?'✕':'⚙';
+})()" title="Toggle Debug Bar">⚙</button>
+<div id="<?= $id ?>-panel">
   <div style="display:flex;gap:16px;padding:6px 12px;background:#0f172a;border-bottom:1px solid #334155">
     <strong>Debug Bar</strong>
     <span>Queries: <?= count(self::$queries) ?> (<?= $totalQueryMs ?>ms)</span>
     <span>Hooks: <?= count(self::$hooks) ?> (<?= $totalHookMs ?>ms)</span>
     <span>Templates: <?= count(self::$templates) ?></span>
-    <button onclick="document.getElementById('debug-bar').style.display='none'" style="margin-left:auto;background:#334155;color:#fff;border:none;border-radius:3px;padding:2px 8px;cursor:pointer">×</button>
   </div>
   <?php if (!empty(self::$queries)): ?>
   <details style="border-bottom:1px solid #334155">
-    <summary style="padding:4px 12px;cursor:pointer;color:#60a5fa">Query Log (<?= count(self::$queries) ?>)</summary>
-    <table style="width:100%;border-collapse:collapse">
+    <summary style="color:#60a5fa">Query Log (<?= count(self::$queries) ?>)</summary>
+    <table>
       <?php foreach (self::$queries as $i => $q): ?>
       <tr><td style="color:#94a3b8;padding:2px 12px;width:30px"><?= $i + 1 ?></td><td style="padding:2px 8px"><?= e($q['sql']) ?></td><td style="color:#cbd5e1;padding:2px 8px;text-align:right"><?= $q['ms'] ?>ms</td></tr>
       <?php endforeach ?>
@@ -66,7 +96,7 @@ class DebugBar
   <?php endif ?>
   <?php if (!empty(self::$hooks)): ?>
   <details style="border-bottom:1px solid #334155">
-    <summary style="padding:4px 12px;cursor:pointer;color:#f59e0b">Hook Execution (<?= count(self::$hooks) ?>)</summary>
+    <summary style="color:#f59e0b">Hook Execution (<?= count(self::$hooks) ?>)</summary>
     <?php foreach (self::$hooks as $h): ?>
     <div style="padding:2px 12px"><?= e($h['name']) ?> → <?= $h['callbacks'] ?> callbacks (<?= $h['ms'] ?>ms)</div>
     <?php endforeach ?>
@@ -74,7 +104,7 @@ class DebugBar
   <?php endif ?>
   <?php if (!empty(self::$templates)): ?>
   <details>
-    <summary style="padding:4px 12px;cursor:pointer;color:#10b981">Template Hierarchy (<?= count(self::$templates) ?>)</summary>
+    <summary style="color:#10b981">Template Hierarchy (<?= count(self::$templates) ?>)</summary>
     <?php foreach (self::$templates as $t): ?>
     <div style="padding:2px 12px"><?= e($t['hierarchy']) ?> → <strong style="color:#10b981"><?= e($t['resolved']) ?></strong></div>
     <?php endforeach ?>

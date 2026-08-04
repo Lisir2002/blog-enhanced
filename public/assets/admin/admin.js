@@ -1,22 +1,57 @@
-// Admin panel JS
+// Admin Panel JS
 (function () {
     'use strict';
+
+    // Sidebar toggle (mobile)
+    var sidebar = document.getElementById('adminSidebar');
+    var toggle = document.getElementById('sidebarToggle');
+    if (sidebar && toggle) {
+        toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            sidebar.classList.toggle('open');
+        });
+        document.addEventListener('click', function (e) {
+            if (window.innerWidth <= 768 && sidebar.classList.contains('open') &&
+                !sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                sidebar.classList.remove('open');
+            }
+        });
+    }
+
+    // Confirm dialogs
+    document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            var msg = this.getAttribute('data-confirm') || '确定执行此操作？';
+            if (!confirm(msg)) { e.preventDefault(); }
+        });
+    });
+
+    // Toggle form visibility (categories, tags, etc.)
+    document.querySelectorAll('[data-toggle-form]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var target = document.getElementById(this.getAttribute('data-toggle-form'));
+            if (target) {
+                target.classList.toggle('open');
+            }
+        });
+    });
+
     // Markdown preview in post editor
     var md = document.getElementById('post-content-md');
-    var preview = document.getElementById('post-preview');
+    var preview = document.getElementById('preview-pane');
     if (md && preview) {
         var timer = null;
         function renderPreview() {
-            fetch(url('/admin/posts/preview'), {
+            var token = document.querySelector('input[name=_token]');
+            fetch('/admin/posts/preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: '_token=' + encodeURIComponent(document.querySelector('input[name=_token]') ? document.querySelector('input[name=_token]').value : '') +
+                body: '_token=' + encodeURIComponent(token ? token.value : '') +
                       '&content=' + encodeURIComponent(md.value),
             }).then(function (r) { return r.text(); }).then(function (html) {
                 preview.innerHTML = html;
-            }).catch(function (e) {
-                // Fallback: local render via regex
-                preview.innerHTML = '<pre>' + md.value + '</pre>';
+            }).catch(function () {
+                preview.innerHTML = '<pre style="white-space:pre-wrap;word-break:break-word;padding:16px;margin:0">' + md.value + '</pre>';
             });
         }
         md.addEventListener('input', function () {
@@ -24,21 +59,5 @@
             timer = setTimeout(renderPreview, 500);
         });
         renderPreview();
-    }
-
-    // Confirm delete
-    document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            var msg = form.getAttribute('data-confirm') || '确定删除？';
-            if (!confirm(msg)) { e.preventDefault(); }
-        });
-    });
-
-    // Toggle sidebar on mobile
-    var toggle = document.querySelector('.menu-toggle');
-    if (toggle) {
-        toggle.addEventListener('click', function () {
-            document.querySelector('.admin-sidebar').classList.toggle('open');
-        });
     }
 })();

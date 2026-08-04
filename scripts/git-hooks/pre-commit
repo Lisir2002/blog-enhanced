@@ -1,0 +1,71 @@
+#!/bin/bash
+#
+# Admin 模板代码规范检查 pre-commit hook
+# 随项目仓库分发，通过 scripts/setup.sh 安装到 .git/hooks/
+#
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+HAS_ERROR=0
+
+echo ""
+echo "=== Admin 模板代码规范检查 ==="
+
+# -------------------------------------------------------
+# 检查 1: 内联 onclick
+# -------------------------------------------------------
+if grep -rn 'onclick=' resources/views/admin/ 2>/dev/null; then
+    echo -e "${RED}❌ 发现内联 onclick，请改用 data-* 属性 + admin.js${NC}"
+    HAS_ERROR=1
+else
+    echo -e "${GREEN}✅ 无内联 onclick${NC}"
+fi
+
+# -------------------------------------------------------
+# 检查 2: admin.php 布局中的内联脚本
+# -------------------------------------------------------
+if grep -q '<script>' resources/views/layouts/admin.php 2>/dev/null; then
+    echo -e "${RED}❌ admin.php 中有内联 <script>，请移入 admin.js${NC}"
+    HAS_ERROR=1
+else
+    echo -e "${GREEN}✅ admin.php 无内联脚本${NC}"
+fi
+
+# -------------------------------------------------------
+# 检查 3: 模板中使用的 CSS 类是否在 admin.css 中定义
+# -------------------------------------------------------
+MISSING_CLASSES=0
+while read cls; do
+    name=$(echo "$cls" | sed 's/\.//')
+    if ! grep -q "\.$name" public/assets/admin/admin.css 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  类 '$name' 在模板中使用但未在 admin.css 中定义${NC}"
+        MISSING_CLASSES=1
+    fi
+done < <(grep -roh 'class="[^"]*"' resources/views/admin/ 2>/dev/null | grep -oE '\.[a-zA-Z0-9_-]+' | sort -u)
+
+if [ "$MISSING_CLASSES" -eq 0 ]; then
+    echo -e "${GREEN}✅ 所有 CSS 类均已定义${NC}"
+fi
+
+# -------------------------------------------------------
+# 检查 4: 模板 data-* 属性使用是否与 admin.js 匹配
+# -------------------------------------------------------
+# 扫描模板中使用的 data-toggle-form 取值
+TOGGLE_IDS=$(grep -roh 'data-toggle-form="[^"]*"' resources/views/admin/ 2>/dev/null | sed 's/.*="//;s/"//' | sort -u)
+for id in $TOGGLE_IDS; do
+    if ! grep -q "id=\"$id\"" resources/views/admin/ 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  data-toggle-form 引用的目标 id='$id' 在模板中不存在${NC}"
+    fi
+done
+
+# -------------------------------------------------------
+echo ""
+if [ "$HAS_ERROR" -eq 1 ]; then
+    echo -e "${RED}❌ 检查不通过，请修复后重新提交${NC}"
+    exit 1
+else
+    echo -e "${GREEN}✅ 全部检查通过${NC}"
+fi

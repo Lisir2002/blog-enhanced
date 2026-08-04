@@ -16,7 +16,7 @@ class AuthMiddleware implements MiddlewareInterface
         private Session $session,
     ) {}
 
-    public function handle(array $params): ?Response
+    public function handle(array $params, array $args = []): ?Response
     {
         if (!$this->auth->check()) {
             $this->session->set('_url_redirect', $_SERVER['REQUEST_URI'] ?? '/');

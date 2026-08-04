@@ -102,11 +102,46 @@ if (!function_exists('theme_path')) {
 if (!function_exists('theme_config')) {
     function theme_config(?string $key = null, mixed $default = null): mixed
     {
-        $config = app(\Core\View\ThemeManager::class)->config();
+        /** @var \Core\View\ThemeManager $tm */
+        $tm = app(\Core\View\ThemeManager::class);
+        $themeMeta = $tm->config() ?: [];
+        $themeOptions = $themeMeta['options'] ?? [];
+
         if ($key === null) {
-            return $config;
+            // 合并优先级：DB 中 ThemeManager->config() 返回的 meta options
+            // → config/theme.php 全局配置 → 函数默认
+            $global = function_exists('config') ? (array) config('theme', []) : [];
+            $flat = [];
+            foreach ($themeOptions as $k => $v) {
+                if (is_array($v) && array_key_exists('default', $v)) {
+                    $flat[$k] = $v['default'];
+                } else {
+                    $flat[$k] = $v;
+                }
+            }
+            return array_replace($global, $flat, []);
         }
-        return $config[$key] ?? $default;
+
+        // 先从 ThemeManager::config($key) 查（走 DB theme_{theme}_{key} + theme.json options.default）
+        $val = $tm->config($key, "__NOT_FOUND__");
+        if ($val !== "__NOT_FOUND__") {
+            return $val;
+        }
+        // 再查全局 config/theme.php
+        if (function_exists('config')) {
+            $gVal = config('theme.' . $key, "__NOT_FOUND__");
+            if ($gVal !== "__NOT_FOUND__") {
+                return $gVal;
+            }
+        }
+        // 最后 theme_json.options
+        if (isset($themeOptions[$key]['default'])) {
+            return $themeOptions[$key]['default'];
+        }
+        if (array_key_exists($key, $themeOptions)) {
+            return $themeOptions[$key];
+        }
+        return $default;
     }
 }
 
@@ -332,11 +367,112 @@ if (!function_exists('do_shortcode')) {
 if (!function_exists('wp_head')) {
     function wp_head(): void
     {
-        // 1. Output enqueued styles
-        echo app(AssetManager::class)->renderStyles();
+        $stylesHtml = app(AssetManager::class)->renderStyles();
+
+        // [复发防护] CSS 内联：Web 预览容器可能无法加载外部 stylesheet，
+        // 开启时把所有 <link rel="stylesheet"> 转成 <style data-theme>。
+        if (theme_config('inline_css', false)) {
+            $stylesHtml = preg_replace_callback(
+                '/<link\s+rel="stylesheet"\s+href="([^"]+)"\s*>/i',
+                function (array $m): string {
+                    $src = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+                    $path = resolveAssetLocalPath($src);
+                    if ($path === null || !is_file($path)) {
+                        return $m[0];
+                    }
+                    $content = (string) file_get_contents($path);
+                    if ($content === '') {
+                        return $m[0];
+                    }
+                    // Web preview 容器下可能把相对路径的 url() 解析到错误位置 — 这里统一把
+                    // CSS url() 内相对路径重写成 /themes/xxx/yyy 绝对路径形式。
+                    $cssDir = dirname($path);
+                    $content = rewriteCssAssetPaths($content, $cssDir);
+                    $escapedSrc = e($src);
+                    return sprintf(
+                        "<style type=\"text/css\" data-theme=\"%s\">\n/* %s (inlined) */\n%s\n</style>\n",
+                        $escapedSrc,
+                        basename($path),
+                        $content
+                    );
+                },
+                $stylesHtml
+            );
+        }
+
+        echo $stylesHtml;
 
         // 2. Run wp_head hook (theme/plugin meta tags, analytics, etc.)
         do_action('wp_head');
+    }
+}
+
+/**
+ * 把 URL (或路径) 解析为本地文件绝对路径。
+ *   - /themes/default/foo.css → {resources}/themes/default/foo.css
+ *   - /css/bar.css            → {public}/css/bar.css
+ *   - http(s)://xxx/path.css  → 非本站资源返回 null（不内联）
+ */
+if (!function_exists('resolveAssetLocalPath')) {
+    function resolveAssetLocalPath(string $src): ?string
+    {
+        if (preg_match('#^https?://#i', $src)) {
+            $appUrl = rtrim((string) config('app.url', ''), '/');
+            if ($appUrl !== '' && stripos($src, $appUrl . '/') === 0) {
+                $src = substr($src, strlen($appUrl));
+            } else {
+                return null; // 第三方资源不内联
+            }
+        }
+        $src = parse_url($src, PHP_URL_PATH) ?? $src;
+        // 去尾 & 参数
+        $src = preg_replace('/\?.*$/', '', (string) $src);
+
+        $baseName = basename((string) $src);
+
+        // 1) 主题资源
+        if (preg_match('#^/?themes/([^/]+)/(.+)$#', (string) $src, $m)) {
+            $candidate = rtrim(themes_path(), '/') . '/' . $m[1] . '/' . $m[2];
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+        // 2) public 目录资源
+        $candidate = rtrim(public_path(), '/') . '/' . ltrim((string) $src, '/');
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+        return null;
+    }
+}
+
+/**
+ * 将 CSS 中相对路径的 url() 重写为基于主题目录的完整路径。
+ *   asset.relative 为 true 时用于资源路径重写。
+ */
+if (!function_exists('rewriteCssAssetPaths')) {
+    function rewriteCssAssetPaths(string $css, string $cssDir): string
+    {
+        return (string) preg_replace_callback(
+            '/url\((["\']?)([^"\')\s]+)(\1)\)/i',
+            function (array $m) use ($cssDir): string {
+                $url = $m[2];
+                // 跳过绝对/远程/data URI/锚点
+                if ($url === '' || str_starts_with($url, 'data:') || str_starts_with($url, '#') ||
+                    preg_match('#^(https?:)?//#i', $url) || str_starts_with($url, '/')) {
+                    return $m[0];
+                }
+                $abs = $cssDir . '/' . $url;
+                // 简化为 /themes/... 相对根
+                $abs = realpath($abs) ?: $abs;
+                $themeRoot = themes_path();
+                if (is_string($abs) && stripos((string) $abs, rtrim($themeRoot, '/')) === 0) {
+                    $url = '/themes' . str_replace('\\', '/', substr((string) $abs, strlen(rtrim($themeRoot, '/'))));
+                }
+                return "url({$m[1]}{$url}{$m[3]})";
+            },
+            $css
+        );
     }
 }
 

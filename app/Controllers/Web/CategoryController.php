@@ -4,6 +4,7 @@ namespace App\Controllers\Web;
 
 use App\Models\Category;
 use App\Models\Post;
+use App\Models\Option;
 
 class CategoryController
 {
@@ -38,5 +39,3 @@ class CategoryController
         ]);
     }
 }
-
-use App\Models\Option;

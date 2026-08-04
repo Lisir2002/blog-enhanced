@@ -1,12 +1,11 @@
 <?php
 /**
- * Header partial
+ * Header partial - BEM 命名 (blog-header / blog-nav)
  * @var string $pageTitle
  */
 $siteName = \App\Models\Option::get('site_name', config('app.name'));
 $siteDesc = \App\Models\Option::get('site_description', '');
 $logoUrl = \App\Models\Option::get('logo_url', '');
-$currentPage = app(\Core\Http\Request::class)->path();
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -19,19 +18,38 @@ $currentPage = app(\Core\Http\Request::class)->path();
     <?php wp_head() ?>
 </head>
 <body class="<?= body_class() ?>">
-<header class="site-header">
-    <div class="container header-inner">
-        <a href="<?= url('/') ?>" class="logo">
+<header class="blog-header">
+    <div class="blog-header__inner">
+        <a href="<?= url('/') ?>" class="blog-header__brand">
             <?php if ($logoUrl): ?>
                 <img src="<?= e($logoUrl) ?>" alt="<?= e($siteName) ?>">
             <?php else: ?>
                 <strong><?= e($siteName) ?></strong>
             <?php endif; ?>
         </a>
-        <button class="menu-toggle" aria-label="菜单" aria-expanded="false">☰</button>
-        <nav class="main-nav" role="navigation">
-            <?= wp_nav_menu(['theme_location' => 'primary', 'menu_class' => 'menu', 'fallback' => true]) ?>
+        <div class="blog-header__actions">
+            <?php if (logged_in()): $user = current_user(); ?>
+                <a href="<?= url('/admin') ?>" class="blog-header__user" title="进入后台">
+                    <img src="<?= e($user->avatarUrl(24)) ?>" alt="" width="24" height="24">
+                </a>
+                <a href="<?= url('/logout') ?>" class="blog-header__login">退出</a>
+            <?php else: ?>
+                <a href="<?= url('/login') ?>" class="blog-header__login">登录</a>
+            <?php endif; ?>
+        </div>
+        <button class="blog-header__toggle" aria-label="菜单" aria-expanded="false" type="button">☰</button>
+        <nav class="blog-nav" role="navigation" aria-label="主导航">
+            <?php
+            ob_start();
+            echo wp_nav_menu(['theme_location' => 'primary', 'menu_class' => 'blog-nav__list', 'fallback' => true]);
+            $navHtml = ob_get_clean();
+            // 替换默认菜单 class 为 BEM
+            $navHtml = preg_replace('/<li class="menu-item(?:\s+current-menu-item)?"/', '<li class="blog-nav__item"', $navHtml);
+            $navHtml = preg_replace('/<li class="menu-item current-menu-item([^"]*)"/', '<li class="blog-nav__item blog-nav__item--active$1"', $navHtml);
+            $navHtml = preg_replace('/<a\s+href=/', '<a class="blog-nav__link" href=', $navHtml);
+            echo $navHtml;
+            ?>
         </nav>
     </div>
 </header>
-<div id="main" class="site-content">
+<div id="main" class="blog-site-content">

@@ -17,7 +17,7 @@ class AdminMiddleware implements MiddlewareInterface
         private AuthManager $auth,
     ) {}
 
-    public function handle(array $params): ?Response
+    public function handle(array $params, array $args = []): ?Response
     {
         if (!$this->auth->check() || !in_array($this->auth->user()->getAttribute('role'), self::ADMIN_ROLES, true)) {
             if ($this->auth->guest()) {

@@ -11,6 +11,52 @@
 
 declare(strict_types=1);
 
+// ── 开发服务器静态资源路由 ──────────────────────────
+// PHP 内置服务器在部分环境下不跟随符号链接，导致 public/themes/ 下的
+// 主题静态资源（JS/CSS/图片）返回 404。这里手动将请求映射到对应目录。
+// 生产环境（Nginx/Apache）直接使用 .htaccess / try_files 规则，不走此路由。
+$uri = $_SERVER['REQUEST_URI'] ?? '';
+$path = parse_url($uri, PHP_URL_PATH) ?? '';
+
+// 通用静态文件服务：检查文件是否存在于 public/ 或 resources/ 目录
+$staticDirs = [
+    '/assets/' => dirname(__DIR__) . '/public',
+    '/themes/' => dirname(__DIR__) . '/resources',
+];
+$matchedDir = null;
+foreach ($staticDirs as $prefix => $dir) {
+    if (str_starts_with($path, $prefix)) {
+        $matchedDir = $dir;
+        break;
+    }
+}
+if ($matchedDir !== null) {
+    $filePath = $matchedDir . $path;
+    if (is_file($filePath)) {
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            'js'   => 'application/javascript',
+            'css'  => 'text/css',
+            'png'  => 'image/png',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif'  => 'image/gif',
+            'svg'  => 'image/svg+xml',
+            'webp' => 'image/webp',
+            'ico'  => 'image/x-icon',
+            'woff' => 'font/woff',
+            'woff2'=> 'font/woff2',
+            'ttf'  => 'font/ttf',
+            'eot'  => 'application/vnd.ms-fontobject',
+        ];
+        $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('X-Content-Type-Options: nosniff');
+        readfile($filePath);
+        return true;
+    }
+}
+
 // 1. Composer 自动加载
 $autoload = dirname(__DIR__) . '/vendor/autoload.php';
 if (!is_file($autoload)) {

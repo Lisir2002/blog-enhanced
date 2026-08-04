@@ -28,8 +28,8 @@ abstract class Model
     /** @var bool 是否启用软删除 */
     protected static bool $softDelete = false;
 
-    /** @var array<string, mixed> 已加载的关联 */
-    private array $relations = [];
+    /** @var array<string, mixed> 已加载的关联 — 子类可直接访问 */
+    protected array $relations = [];
 
     /** @var array<string, bool> 预加载的关联名 */
     protected array $eagerLoad = [];

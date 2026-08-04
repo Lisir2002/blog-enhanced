@@ -4,10 +4,19 @@ namespace Core\Cache;
 
 /**
  * 简易文件缓存，提供 PSR-16 风格 API。
+ *
+ * 实现完整的 CacheInterface：get / set / forever / delete / clear / has / remember
+ *   tagged / flushTag / lock / increment / decrement / driver。
  */
 class FileCache implements CacheInterface
 {
     private string $dir;
+
+    /** @var array<string, int> 计数器持久化缓存 */
+    private array $counters = [];
+
+    /** @var bool 是否已加载计数器 */
+    private bool $countersLoaded = false;
 
     public function __construct()
     {
@@ -50,6 +59,11 @@ class FileCache implements CacheInterface
         return (bool) file_put_contents($path, serialize($data), LOCK_EX);
     }
 
+    public function forever(string $key, mixed $value): bool
+    {
+        return $this->set($key, $value, 0);
+    }
+
     public function delete(string $key): bool
     {
         $path = $this->path($key);
@@ -86,6 +100,98 @@ class FileCache implements CacheInterface
             $this->set($key, $value, $ttl);
         }
         return $value;
+    }
+
+    /* ═══════════════ Tags (持久化 tag ═══════════════ */
+
+    /**
+     * 带标签写入：key-value 写入后，把 key 附加到每个 tag 文件中。
+     */
+    public function tagged(string $key, mixed $value, array $tags, ?int $ttl = 3600): bool
+    {
+        $ok = $this->set($key, $value, $ttl);
+        if (!$ok) {
+            return false;
+        }
+        foreach ($tags as $tag) {
+            $tagKey = '__tag__' . $tag;
+            $existing = $this->get($tagKey);
+            $keys = is_array($existing) ? $existing : [];
+            if (!in_array($key, $keys, true)) {
+                $keys[] = $key;
+                $this->set($tagKey, $keys, 0);
+            }
+        }
+        return true;
+    }
+
+    public function flushTag(string $tag): bool
+    {
+        $tagKey = '__tag__' . $tag;
+        $existing = $this->get($tagKey);
+        $keys = is_array($existing) ? $existing : [];
+        foreach ($keys as $k) {
+            $this->delete($k);
+        }
+        $this->delete($tagKey);
+        return true;
+    }
+
+    /* ═══════════════ Lock ═══════════════ */
+
+    public function lock(string $key, int $ttl = 10): CacheLock
+    {
+        $lock = new CacheLock($key, $ttl);
+        $lock->bind($this);
+        return $lock;
+    }
+
+    /* ═══════════════ 计数器 (持久化) ═══════════════ */
+
+    private function counterPath(): string
+    {
+        return $this->dir . '/__counters.dat';
+    }
+
+    private function loadCounters(): void
+    {
+        if ($this->countersLoaded) {
+            return;
+        }
+        $this->countersLoaded = true;
+        $path = $this->counterPath();
+        if (!is_file($path)) {
+            return;
+        }
+        $raw = @unserialize((string) file_get_contents($path));
+        $this->counters = is_array($raw) ? $raw : [];
+    }
+
+    private function saveCounters(): void
+    {
+        $dir = dirname($this->counterPath());
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+        file_put_contents($this->counterPath(), serialize($this->counters), LOCK_EX);
+    }
+
+    public function increment(string $key, int $step = 1): int
+    {
+        $this->loadCounters();
+        $this->counters[$key] = (int) ($this->counters[$key] ?? 0) + $step;
+        $this->saveCounters();
+        return $this->counters[$key];
+    }
+
+    public function decrement(string $key, int $step = 1): int
+    {
+        return $this->increment($key, -$step);
+    }
+
+    public function driver(): string
+    {
+        return 'file';
     }
 
     private function path(string $key): string

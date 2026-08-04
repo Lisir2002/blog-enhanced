@@ -2,20 +2,33 @@
 /** @var array $posts $page $totalPages */
 ob_start();
 ?>
-<div class="action-bar">
-    <form method="get" style="display:flex;gap:8px">
-        <input type="text" name="q" value="<?= e(app(\Core\Http\Request::class)->input('q', '')) ?>" placeholder="搜索文章..." class="form-control" style="padding:6px 12px;border:1px solid var(--c-border);border-radius:6px">
-        <select name="status" style="padding:6px 12px;border:1px solid var(--c-border);border-radius:6px">
-            <option value="">全部状态</option>
-            <option value="published" <?= app(\Core\Http\Request::class)->input('status') === 'published' ? 'selected' : '' ?>>已发布</option>
-            <option value="draft" <?= app(\Core\Http\Request::class)->input('status') === 'draft' ? 'selected' : '' ?>>草稿</option>
-        </select>
-        <button type="submit" class="btn btn-primary btn-sm">筛选</button>
-    </form>
-    <a href="<?= route('admin.posts.create') ?>" class="btn btn-primary">+ 写文章</a>
+<div class="page-header">
+    <h2>文章管理</h2>
+    <div class="page-header-actions">
+        <a href="<?= route('admin.posts.create') ?>" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            写文章
+        </a>
+    </div>
 </div>
 
 <div class="table-wrap">
+    <div class="table-toolbar">
+        <div class="table-toolbar-left">
+            <form method="get" class="filter-form">
+                <div class="search-box">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" name="q" value="<?= e(app(\Core\Http\Request::class)->input('q', '')) ?>" placeholder="搜索文章..." class="form-control">
+                </div>
+                <select name="status" class="form-control">
+                    <option value="">全部状态</option>
+                    <option value="published" <?= app(\Core\Http\Request::class)->input('status') === 'published' ? 'selected' : '' ?>>已发布</option>
+                    <option value="draft" <?= app(\Core\Http\Request::class)->input('status') === 'draft' ? 'selected' : '' ?>>草稿</option>
+                </select>
+                <button type="submit" class="btn btn-sm btn-primary">筛选</button>
+            </form>
+        </div>
+    </div>
     <table>
         <thead>
         <tr>
@@ -35,18 +48,20 @@ ob_start();
                 <td><?= $cat ? e($cat->getAttribute('name')) : '-' ?></td>
                 <td><span class="badge badge-<?= $post->getAttribute('status') ?>"><?= $post->getAttribute('status') === 'published' ? '已发布' : '草稿' ?></span></td>
                 <td><?= e($post->getAttribute('published_at') ?? $post->getAttribute('created_at')) ?></td>
-                <td class="btn-row">
-                    <a href="<?= $post->url() ?>" target="_blank" class="btn btn-sm btn-secondary">查看</a>
-                    <a href="<?= route('admin.posts.edit', ['id' => $post->getAttribute('id')]) ?>" class="btn btn-sm btn-primary">编辑</a>
-                    <form method="post" action="<?= route('admin.posts.delete', ['id' => $post->getAttribute('id')]) ?>" data-confirm="确定删除该文章？">
-                        <input type="hidden" name="_token" value="<?= csrf_token() ?>">
-                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
-                    </form>
+                <td>
+                    <div class="btn-row">
+                        <a href="<?= $post->url() ?>" target="_blank" class="btn btn-sm btn-secondary">查看</a>
+                        <a href="<?= route('admin.posts.edit', ['id' => $post->getAttribute('id')]) ?>" class="btn btn-sm btn-primary">编辑</a>
+                        <form method="post" action="<?= route('admin.posts.delete', ['id' => $post->getAttribute('id')]) ?>" data-confirm="确定删除该文章？">
+                            <input type="hidden" name="_token" value="<?= csrf_token() ?>">
+                            <button type="submit" class="btn btn-sm btn-danger">删除</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
         <?php endforeach; ?>
         <?php if (empty($posts)): ?>
-            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--c-text-muted)">暂无文章</td></tr>
+            <tr><td colspan="6" class="empty-cell">暂无文章</td></tr>
         <?php endif; ?>
         </tbody>
     </table>

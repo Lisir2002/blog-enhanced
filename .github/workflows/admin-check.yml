@@ -1,0 +1,50 @@
+name: Admin 代码规范检查
+
+on:
+  push:
+    paths:
+      - 'resources/views/admin/**'
+      - 'public/assets/admin/**'
+      - 'resources/views/layouts/admin.php'
+  pull_request:
+    paths:
+      - 'resources/views/admin/**'
+      - 'public/assets/admin/**'
+      - 'resources/views/layouts/admin.php'
+
+jobs:
+  admin-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 检查内联 onclick
+        run: |
+          if grep -rn 'onclick=' resources/views/admin/ 2>/dev/null; then
+            echo "❌ 发现内联 onclick，请改用 data-* 属性 + admin.js"
+            exit 1
+          fi
+          echo "✅ 无内联 onclick"
+
+      - name: 检查 admin.php 内联脚本
+        run: |
+          if grep -q '<script>' resources/views/layouts/admin.php 2>/dev/null; then
+            echo "❌ admin.php 中有内联 <script>，请移入 admin.js"
+            exit 1
+          fi
+          echo "✅ admin.php 无内联脚本"
+
+      - name: 检查模板 CSS 类是否已定义
+        run: |
+          MISSING=0
+          while read cls; do
+            name=$(echo "$cls" | sed 's/\.//')
+            if ! grep -q "\.$name" public/assets/admin/admin.css 2>/dev/null; then
+              echo "⚠️  类 '$name' 在模板中使用但未在 admin.css 中定义"
+              MISSING=1
+            fi
+          done < <(grep -roh 'class="[^"]*"' resources/views/admin/ 2>/dev/null | grep -oE '\.[a-zA-Z0-9_-]+' | sort -u)
+          if [ "$MISSING" -eq 1 ]; then
+            exit 1
+          fi
+          echo "✅ 所有 CSS 类均已定义"

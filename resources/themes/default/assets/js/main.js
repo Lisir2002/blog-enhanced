@@ -2,21 +2,19 @@
 (function () {
     'use strict';
 
-    // Mobile menu toggle
-    var toggle = document.querySelector('.menu-toggle');
-    var nav = toggle ? toggle.closest('.main-nav') : null;
+    // Mobile menu toggle (BEM: blog-header__toggle + blog-nav)
+    var toggle = document.querySelector('.blog-header__toggle');
+    var nav = document.querySelector('.blog-nav');
     if (toggle && nav) {
         toggle.addEventListener('click', function () {
-            var expanded = nav.classList.toggle('menu-open');
+            var expanded = nav.classList.toggle('is-open');
             toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
         });
     }
 
     // Lazy-load images below the fold
     if ('loading' in HTMLImageElement.prototype) {
-        document.querySelectorAll('img[loading="lazy"]').forEach(function (img) {
-            // already native
-        });
+        // native lazy loading supported
     } else if (window.IntersectionObserver) {
         var io = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
@@ -50,11 +48,11 @@
 
     // Highlight current menu item more precisely
     var path = window.location.pathname;
-    document.querySelectorAll('.menu-item a').forEach(function (a) {
+    document.querySelectorAll('.blog-nav__item a').forEach(function (a) {
         var href = a.getAttribute('href');
         if (!href) return;
         if (path === href || (href !== '/' && path.indexOf(href) === 0)) {
-            a.parentElement.classList.add('active');
+            a.parentElement.classList.add('blog-nav__item--active');
         }
     });
 })();

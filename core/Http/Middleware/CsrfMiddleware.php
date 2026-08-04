@@ -14,7 +14,7 @@ class CsrfMiddleware implements MiddlewareInterface
         private Session $session,
     ) {}
 
-    public function handle(array $params): ?Response
+    public function handle(array $params, array $args = []): ?Response
     {
         $token = $_POST['_token'] ?? $_POST['_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
         if (!$this->session->verifyCsrf($token)) {

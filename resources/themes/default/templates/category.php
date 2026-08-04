@@ -1,51 +1,51 @@
 <?php
 /**
- * Category template
+ * Category template - BEM (布局 D：卡片列表)
  */
 get_header();
 ?>
-<div class="container">
-    <div class="layout-grid">
-        <main class="content-area" role="main">
-            <header class="page-header">
-                <h1 class="page-title">分类: <?= e($category->getAttribute('name')) ?></h1>
+<div class="blog-container">
+    <div class="blog-layout">
+        <main class="blog-layout__main" role="main">
+            <header class="blog-archive-header">
+                <h1 class="blog-archive-header__title">分类: <?= e($category->getAttribute('name')) ?></h1>
                 <?php if ($category->getAttribute('description')): ?>
-                    <p class="archive-description"><?= e($category->getAttribute('description')) ?></p>
+                    <p class="blog-archive-header__desc"><?= e($category->getAttribute('description')) ?></p>
                 <?php endif; ?>
             </header>
+
             <?php if (empty($posts)): ?>
-                <div class="empty-state"><div class="icon">📭</div><p>该分类下暂无文章</p></div>
+                <div class="blog-empty-state"><div class="blog-empty-state__icon">📭</div><p class="blog-empty-state__text">该分类下暂无文章</p></div>
             <?php else: ?>
-                <div class="post-list">
-                    <?php foreach ($posts as $r): $post = new \App\Models\Post($r); ?>
-                        <article class="post-card">
-                            <div class="post-card-inner">
-                                <div class="body">
-                                    <div class="meta">
-                                        <span><?= substr((string) $post->getAttribute('published_at'), 0, 10) ?></span>
-                                    </div>
-                                    <h2 class="title"><a href="<?= $post->url() ?>"><?= e($post->getAttribute('title')) ?></a></h2>
-                                    <p class="excerpt"><?= e($post->excerpt(160)) ?></p>
-                                    <a class="read-more" href="<?= $post->url() ?>">阅读全文 →</a>
-                                </div>
+                <div class="blog-card-list">
+                    <?php foreach ($posts as $r): $post = is_object($r) ? $r : new \App\Models\Post($r); ?>
+                        <?php $cat = $post->category(); ?>
+                        <article class="blog-card <?= $post->getAttribute('cover') ? '' : 'blog-card--no-cover' ?>">
+                            <?php if ($post->getAttribute('cover')): ?>
+                                <a href="<?= $post->url() ?>" class="blog-card__cover">
+                                    <img src="<?= e($post->getAttribute('cover')) ?>" alt="<?= e($post->getAttribute('title')) ?>" loading="lazy">
+                                </a>
+                            <?php endif; ?>
+                            <div class="blog-card__body">
+                                <?php if ($cat): ?>
+                                    <a href="<?= $cat->url() ?>" class="blog-card__category"><?= e($cat->getAttribute('name')) ?></a>
+                                <?php endif; ?>
+                                <h2 class="blog-card__title"><a href="<?= $post->url() ?>"><?= e($post->getAttribute('title')) ?></a></h2>
+                                <p class="blog-card__excerpt"><?= e($post->excerpt(160)) ?></p>
+                                <a class="blog-card__readmore" href="<?= $post->url() ?>">阅读全文 →</a>
                             </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
-                <?php if ($totalPages > 1): ?>
-                <nav class="pagination" aria-label="分页">
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <?php if ($i == $page): ?>
-                            <span class="current"><?= $i ?></span>
-                        <?php else: ?>
-                            <a href="<?= url('/category/' . $category->getAttribute('slug') . '/page/' . $i) ?>"><?= $i ?></a>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-                </nav>
-                <?php endif; ?>
+
+                <?= paginate_links([
+                    'total'     => $totalPages,
+                    'current'   => $page,
+                    'base'      => url('/category/' . $category->getAttribute('slug') . '/page/%#%'),
+                ]) ?>
             <?php endif; ?>
         </main>
         <?php get_sidebar(); ?>
     </div>
 </div>
-<?php get_footer();
+<?php get_footer(); ?>

@@ -9,7 +9,7 @@ use Core\Http\Response;
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
-    public function handle(array $params): ?Response
+    public function handle(array $params, array $args = []): ?Response
     {
         // 通过 $_SERVER['security_headers'] 全局输出头部
         // 实际安全头在 Response::send() 时输出

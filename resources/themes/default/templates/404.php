@@ -1,15 +1,15 @@
 <?php
 /**
- * 404 template
+ * 404 template - BEM
  * @var string $message
  */
 get_header();
 ?>
-<div class="container">
-    <main class="content-area error-page" role="main">
-        <p class="error-code">404</p>
-        <p class="error-message"><?= e($message ?? '页面不存在') ?></p>
-        <a href="<?= url('/') ?>" class="button">← 返回首页</a>
+<div class="blog-container">
+    <main class="blog-error-page" role="main">
+        <p class="blog-error-page__code">404</p>
+        <p class="blog-error-page__message"><?= e($message ?? '页面不存在') ?></p>
+        <a href="<?= url('/') ?>" class="blog-btn blog-btn--primary">← 返回首页</a>
     </main>
 </div>
-<?php get_footer();
+<?php get_footer(); ?>
