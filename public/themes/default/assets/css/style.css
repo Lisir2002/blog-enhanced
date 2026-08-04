@@ -113,9 +113,9 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
     height: 64px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 16px;
 }
+.blog-header__brand { flex-shrink: 0; }
 .blog-header__brand strong {
     font-size: 18px;
     font-weight: 800;
@@ -141,9 +141,12 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
     overflow: hidden;
     border: 2px solid transparent;
     transition: border-color var(--transition);
+    padding: 0;
+    background: transparent;
+    line-height: 0;
 }
 .blog-header__user:hover { border-color: var(--c-primary); text-decoration: none; }
-.blog-header__user img { display: block; border-radius: 50%; }
+.blog-header__user img { display: block; border-radius: 50%; width: 28px; height: 28px; object-fit: cover; }
 .blog-header__login {
     font-size: 13px;
     font-weight: 600;
@@ -162,6 +165,21 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
     color: var(--c-text);
     padding: 4px 10px;
     font-size: 18px;
+    width: auto;
+    min-width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 5;
+    overflow: visible;
+}
+.blog-header__toggle::before {
+    content: none !important;
+}
+.blog-header__toggle * {
+    display: none !important;
 }
 
 .blog-nav { display: flex; align-items: center; }
@@ -199,8 +217,10 @@ h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 0 0 .6em; font-weight: 700; c
 }
 
 @media (max-width: 768px) {
-    .blog-header__toggle { display: inline-flex; }
-    .blog-nav { display: none; position: absolute; left: 0; right: 0; top: 64px; background: var(--c-bg); border-bottom: 1px solid var(--c-border); padding: 8px 16px 16px; }
+    .blog-header__inner { gap: 8px; }
+    .blog-header__toggle { display: inline-flex; order: 3; margin-left: 0; }
+    .blog-header__actions { order: 2; margin-left: auto; }
+    .blog-nav { order: 4; display: none; position: absolute; left: 0; right: 0; top: 64px; background: var(--c-bg); border-bottom: 1px solid var(--c-border); padding: 8px 16px 16px; }
     .blog-nav.is-open { display: block; }
     .blog-nav ul { flex-direction: column; align-items: stretch; gap: 4px; }
     .blog-nav__item > a, .blog-nav__link { height: 40px; border-radius: var(--radius-sm); }

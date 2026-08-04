@@ -27,6 +27,7 @@ $logoUrl = \App\Models\Option::get('logo_url', '');
                 <strong><?= e($siteName) ?></strong>
             <?php endif; ?>
         </a>
+        <button class="blog-header__toggle" aria-label="菜单" aria-expanded="false" type="button">☰</button>
         <div class="blog-header__actions">
             <?php if (logged_in()): $user = current_user(); ?>
                 <a href="<?= url('/admin') ?>" class="blog-header__user" title="进入后台">
@@ -37,7 +38,6 @@ $logoUrl = \App\Models\Option::get('logo_url', '');
                 <a href="<?= url('/login') ?>" class="blog-header__login">登录</a>
             <?php endif; ?>
         </div>
-        <button class="blog-header__toggle" aria-label="菜单" aria-expanded="false" type="button">☰</button>
         <nav class="blog-nav" role="navigation" aria-label="主导航">
             <?php
             ob_start();
