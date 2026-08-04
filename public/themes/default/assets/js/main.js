@@ -55,4 +55,68 @@
             a.parentElement.classList.add('blog-nav__item--active');
         }
     });
+
+    // ─── Floating TOC ──────────────────────────────────────
+    (function () {
+        var tocFloat = document.getElementById('floatingToc');
+        if (!tocFloat) return;
+
+        var toggle = tocFloat.querySelector('.blog-toc-float__toggle');
+        var links = tocFloat.querySelectorAll('.blog-toc__link');
+        if (!toggle) return;
+
+        // Toggle expand/collapse
+        toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            tocFloat.classList.toggle('is-open');
+        });
+
+        // Close panel when clicking outside
+        document.addEventListener('click', function (e) {
+            if (tocFloat.classList.contains('is-open') && !tocFloat.contains(e.target)) {
+                tocFloat.classList.remove('is-open');
+            }
+        });
+
+        // Scroll tracking with Intersection Observer
+        var headings = [];
+        links.forEach(function (link) {
+            var href = link.getAttribute('href');
+            if (href && href.charAt(0) === '#') {
+                var target = document.getElementById(href.slice(1));
+                if (target) {
+                    headings.push({ el: target, link: link });
+                }
+            }
+        });
+
+        if (headings.length > 0 && window.IntersectionObserver) {
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        var id = entry.target.id;
+                        links.forEach(function (l) {
+                            l.classList.toggle('is-active', l.getAttribute('href') === '#' + id);
+                        });
+                    }
+                });
+            }, { rootMargin: '-80px 0px -80% 0px' });
+
+            headings.forEach(function (h) { observer.observe(h.el); });
+        }
+
+        // Smooth scroll on link click
+        links.forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                var href = link.getAttribute('href');
+                if (href && href.charAt(0) === '#') {
+                    e.preventDefault();
+                    var target = document.getElementById(href.slice(1));
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        });
+    })();
 })();

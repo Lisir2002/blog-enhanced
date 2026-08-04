@@ -11,12 +11,12 @@
  */
 get_header();
 
-// 生成 TOC 并给 h2/h3 注入 id
+// 生成 TOC 并给 h2/h3 注入 id，同时保留原始 tocHtml 用于浮动面板
 $tocHtml = function_exists('table_of_contents') ? table_of_contents($post->html()) : '';
 $contentHtml = $GLOBALS['toc_filtered_html'] ?? $post->html();
 $sidebarMode = theme_config('single_sidebar_mode', 'toc');
 
-// TOC 注入的 class 转为 BEM
+// 转换 TOC 为 BEM 样式（用于浮动面板）
 if ($tocHtml !== '') {
     $tocHtml = preg_replace('/<nav class="toc">/', '<nav class="blog-toc" role="navigation" aria-label="目录">', $tocHtml);
     $tocHtml = preg_replace('/<h3>(.*?)<\/h3>/s', '<h3 class="blog-toc__title">$1</h3>', $tocHtml);
@@ -144,14 +144,28 @@ if ($tocHtml !== '') {
             </section>
         </main>
 
-        <aside class="blog-single-layout__aside">
-            <?php if (($sidebarMode === 'toc' || $sidebarMode === 'both') && $tocHtml !== ''): ?>
+        <?php if ($tocHtml !== ''): ?>
+        <!-- Floating TOC: left side, semi-hidden, click to expand -->
+        <div class="blog-toc-float" id="floatingToc">
+            <button class="blog-toc-float__toggle" aria-label="目录" title="显示目录">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+            </button>
+            <div class="blog-toc-float__panel">
                 <?= $tocHtml ?>
-            <?php endif; ?>
-            <?php if ($sidebarMode === 'sidebar' || $sidebarMode === 'both'): ?>
-                <?php get_sidebar(); ?>
-            <?php endif; ?>
-            <?php if ($sidebarMode === 'toc' && $tocHtml === ''): ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <aside class="blog-single-layout__aside">
+            <?php
+            // 侧边栏显示逻辑：sidebar/both 模式始终显示；toc 模式仅在无 TOC 时回退显示
+            $showSidebar = ($sidebarMode === 'sidebar' || $sidebarMode === 'both' || ($sidebarMode === 'toc' && $tocHtml === ''));
+            if ($showSidebar):
+            ?>
                 <?php get_sidebar(); ?>
             <?php endif; ?>
         </aside>
