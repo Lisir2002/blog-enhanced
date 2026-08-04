@@ -29,7 +29,7 @@ $roles = \Core\Auth\Capability::roles();
                     </div>
                 </td>
                 <td><?= e($u->getAttribute('email')) ?></td>
-                <td><span class="badge badge-<?= $u->getAttribute('role') === 'admin' ? 'blue' : 'gray' ?>"><?= $roles[$u->getAttribute('role')] ?? $u->getAttribute('role') ?></span></td>
+                <td><span class="badge badge-<?= $u->getAttribute('role') === 'super_admin' ? 'blue' : 'gray' ?>"><?= $roles[$u->getAttribute('role')] ?? $u->getAttribute('role') ?></span></td>
                 <td><span class="badge badge-<?= $u->getAttribute('status') === 'active' ? 'green' : 'red' ?>"><?= $u->getAttribute('status') ?></span></td>
                 <td><?= $u->getAttribute('created_at') ?></td>
                 <td>

@@ -23,7 +23,7 @@ class QueryBuilderTest extends TestCase
         $now = date('Y-m-d H:i:s');
         $this->qb()->table('users')->insert([
             'username' => 'tester', 'email' => 'test@example.com', 'password' => 'x',
-            'role' => 'admin', 'created_at' => $now, 'updated_at' => $now,
+            'role' => 'super_admin', 'created_at' => $now, 'updated_at' => $now,
         ]);
         $this->qb()->table('categories')->insert([
             'name' => 'Cat', 'slug' => 'cat', 'parent_id' => 0,

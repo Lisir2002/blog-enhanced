@@ -187,7 +187,7 @@ class FirstBatchTest extends TestCase
         // User
         $this->app->get(\Core\Database\Connection::class)->pdo()->exec(
             "INSERT INTO users (username, email, password, role, created_at, updated_at)
-             VALUES ('testuser', 'test@example.com', 'x', 'admin', '{$now}', '{$now}')"
+             VALUES ('testuser', 'test@example.com', 'x', 'super_admin', '{$now}', '{$now}')"
         );
 
         // Category

@@ -109,14 +109,15 @@ class AuthManager
 
     public function isAdmin(): bool
     {
-        return $this->hasRole('admin');
+        return $this->hasRole('super_admin');
     }
+
 
     /**
      * 校验当前用户是否拥有指定权限。
      *
      * 支持第二个参数：文章 ID / 文章数组 / User 对象，用于细粒度校验
-     * （例如 author 编辑文章时只能编辑自己的）。
+     * （例如 editor_admin / editor_writer 编辑文章时只能编辑自己的）。
      */
     public function can(string $capability, mixed $args = null): bool
     {
@@ -126,8 +127,8 @@ class AuthManager
         }
         $role = $u->getAttribute('role');
         if (Capability::has($role, $capability, $args)) {
-            // author / contributor 编辑文章时，必须是自己的
-            if ($capability === 'edit_posts' && $args !== null && in_array($role, ['author', 'contributor'], true)) {
+            // editor_admin / editor_writer 编辑文章时，必须是自己的
+            if ($capability === 'edit_posts' && $args !== null && in_array($role, ['editor_admin', 'editor_writer'], true)) {
                 $authorId = is_array($args) ? (int) ($args['author_id'] ?? 0)
                     : (is_object($args) && method_exists($args, 'getAttribute') ? (int) $args->getAttribute('author_id') : 0);
                 return $authorId === (int) $u->getAttribute('id');

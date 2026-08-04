@@ -6,12 +6,12 @@ use Core\Auth\AuthManager;
 use Core\Http\Response;
 
 /**
- * 要求用户拥有后台管理权限（admin/editor/author/contributor）。
+ * 要求用户拥有后台管理权限（super_admin/senior_admin/editor_admin/editor_writer）。
  * 未登录 → 跳转登录；已登录但权限不足 → 403。
  */
 class AdminMiddleware implements MiddlewareInterface
 {
-    private const ADMIN_ROLES = ['admin', 'editor', 'author', 'contributor'];
+    private const ADMIN_ROLES = ['super_admin', 'senior_admin', 'editor_admin', 'editor_writer'];
 
     public function __construct(
         private AuthManager $auth,

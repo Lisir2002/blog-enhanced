@@ -338,7 +338,7 @@ class ThirdBatchTest extends TestCase
         $now = date('Y-m-d H:i:s');
         $pdo = $this->app->get(\Core\Database\Connection::class)->pdo();
         $pdo->exec("INSERT INTO users (username, email, password, role, status, created_at, updated_at)
-            VALUES ('author', 'author@example.com', 'x', 'author', 'active', '$now', '$now')");
+            VALUES ('author', 'author@example.com', 'x', 'editor_admin', 'active', '$now', '$now')");
         $pdo->exec("INSERT INTO categories (name, slug, created_at, updated_at)
             VALUES ('Tech', 'tech', '$now', '$now')");
     }

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     email           TEXT NOT NULL UNIQUE,
     password        TEXT NOT NULL,
     display_name    TEXT,
-    role            TEXT NOT NULL DEFAULT 'subscriber',
+    role            TEXT NOT NULL DEFAULT 'visitor',
     bio             TEXT,
     avatar          TEXT,
     url             TEXT,
