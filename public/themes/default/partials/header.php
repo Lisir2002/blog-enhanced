@@ -27,17 +27,6 @@ $logoUrl = \App\Models\Option::get('logo_url', '');
                 <strong><?= e($siteName) ?></strong>
             <?php endif; ?>
         </a>
-        <button class="blog-header__toggle" aria-label="菜单" aria-expanded="false" type="button">☰</button>
-        <div class="blog-header__actions">
-            <?php if (logged_in()): $user = current_user(); ?>
-                <a href="<?= url('/admin') ?>" class="blog-header__user" title="进入后台">
-                    <img src="<?= e($user->avatarUrl(24)) ?>" alt="" width="24" height="24">
-                </a>
-                <a href="<?= url('/logout') ?>" class="blog-header__login">退出</a>
-            <?php else: ?>
-                <a href="<?= url('/login') ?>" class="blog-header__login">登录</a>
-            <?php endif; ?>
-        </div>
         <nav class="blog-nav" role="navigation" aria-label="主导航">
             <?php
             ob_start();
@@ -50,6 +39,16 @@ $logoUrl = \App\Models\Option::get('logo_url', '');
             echo $navHtml;
             ?>
         </nav>
+        <div class="blog-header__tools">
+            <button class="blog-header__toggle" aria-label="菜单" aria-expanded="false" type="button">☰</button>
+            <?php if (logged_in()): $user = current_user(); ?>
+                <a href="<?= url('/admin') ?>" class="blog-header__user" title="进入后台">
+                    <img src="<?= e($user->avatarUrl(32)) ?>" alt="" width="32" height="32">
+                </a>
+            <?php else: ?>
+                <a href="<?= url('/login') ?>" class="blog-header__login">登录</a>
+            <?php endif; ?>
+        </div>
     </div>
 </header>
 <div id="main" class="blog-site-content">
