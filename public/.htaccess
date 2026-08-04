@@ -3,6 +3,9 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L]
+
+    # Deny direct access to theme PHP files
+    RewriteRule ^themes/.*\.php$ - [F,L]
 </IfModule>
 
 # Security

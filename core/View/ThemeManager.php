@@ -7,7 +7,7 @@ use Core\Http\Response;
 /**
  * 主题管理器 — 模仿 WordPress 模板层级 + 父子主题 + 页面模板。
  *
- * - 主题位于 resources/themes/{name}/
+ * - 主题位于 public/themes/{name}/
  * - 主题入口 functions.php 在 boot 时加载
  * - 子主题在 theme.json 声明 "parent" → 模板按 child → parent 顺序查找
  * - 模板按层级查找：single-post-{slug}.php → single-post.php → single.php → index.php

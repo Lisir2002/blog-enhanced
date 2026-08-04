@@ -7,55 +7,36 @@
  *   Nginx:  try_files $uri $uri/ /index.php?$query_string;
  *   Apache: 使用 .htaccess（见同目录）
  *   开发:   php -S localhost:8080 -t public public/index.php
+ *
+ * 架构说明：
+ *   主题文件位于 public/themes/ 下，静态资源（CSS/JS/图片）由 Web 服务器直接响应。
+ *   PHP 模板文件受 .htaccess 和 index.php 双重保护，禁止直接 URL 访问。
  */
 
 declare(strict_types=1);
 
-// ── 开发服务器静态资源路由 ──────────────────────────
-// PHP 内置服务器在部分环境下不跟随符号链接，导致 public/themes/ 下的
-// 主题静态资源（JS/CSS/图片）返回 404。这里手动将请求映射到对应目录。
-// 生产环境（Nginx/Apache）直接使用 .htaccess / try_files 规则，不走此路由。
+// ── 安全拦截：禁止直接访问主题 PHP 文件 ─────────────────
+// 即使 .htaccess 失效（如 PHP 内置服务器），此层仍提供保护。
 $uri = $_SERVER['REQUEST_URI'] ?? '';
 $path = parse_url($uri, PHP_URL_PATH) ?? '';
 
-// 通用静态文件服务：检查文件是否存在于 public/ 或 resources/ 目录
-$staticDirs = [
-    '/assets/' => dirname(__DIR__) . '/public',
-    '/themes/' => dirname(__DIR__) . '/resources',
-];
-$matchedDir = null;
-foreach ($staticDirs as $prefix => $dir) {
-    if (str_starts_with($path, $prefix)) {
-        $matchedDir = $dir;
-        break;
-    }
+// 拒绝直接访问 themes/ 下的任何 .php 文件
+if (preg_match('#^/themes/.*\.php$#', (string) $path)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo '403 Forbidden';
+    exit;
 }
-if ($matchedDir !== null) {
-    $filePath = $matchedDir . $path;
+
+// PHP 内置服务器：静态文件直接返回，不经过后续处理
+if (php_sapi_name() === 'cli-server') {
+    $filePath = __DIR__ . $path;
     if (is_file($filePath)) {
-        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $mimeTypes = [
-            'js'   => 'application/javascript',
-            'css'  => 'text/css',
-            'png'  => 'image/png',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'gif'  => 'image/gif',
-            'svg'  => 'image/svg+xml',
-            'webp' => 'image/webp',
-            'ico'  => 'image/x-icon',
-            'woff' => 'font/woff',
-            'woff2'=> 'font/woff2',
-            'ttf'  => 'font/ttf',
-            'eot'  => 'application/vnd.ms-fontobject',
-        ];
-        $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
-        header('Content-Type: ' . $mime);
-        header('X-Content-Type-Options: nosniff');
-        readfile($filePath);
-        return true;
+        return false;
     }
 }
+
+// ── 引导应用 ──────────────────────────────────────
 
 // 1. Composer 自动加载
 $autoload = dirname(__DIR__) . '/vendor/autoload.php';

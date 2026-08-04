@@ -114,7 +114,7 @@ if (!function_exists('resource_path')) {
 if (!function_exists('themes_path')) {
     function themes_path(string $path = ''): string
     {
-        return resource_path('themes') . ($path ? '/' . ltrim($path, '/') : '');
+        return public_path('themes') . ($path ? '/' . ltrim($path, '/') : '');
     }
 }
 

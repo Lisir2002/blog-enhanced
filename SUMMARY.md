@@ -429,7 +429,7 @@ auth/
 ### 8.1 主题结构
 
 ```
-resources/themes/default/
+public/themes/default/
 ├── theme.json              ← 主题元数据（名称、版本、作者、描述）
 ├── functions.php           ← 主题函数（注册 Widget 区域、菜单、Shortcode）
 ├── Widgets/

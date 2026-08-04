@@ -29,7 +29,7 @@
             "App\\": "app/",
             "Core\\": "core/",
             "Database\\Migrations\\": "database/migrations/",
-            "Themes\\Default\\": "resources/themes/default/"
+            "Themes\\Default\\": "public/themes/default/"
         },
         "files": [
             "core/Support/helpers.php",

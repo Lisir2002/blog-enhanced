@@ -80,7 +80,7 @@ php blog migrate
 
 ## 主题开发
 
-主题位于 `resources/themes/{name}/`，结构：
+主题位于 `public/themes/{name}/`，结构：
 
 ```
 my-theme/
@@ -177,8 +177,9 @@ php blog serve        # 启动开发服务器
 blog/
 ├── public/               # Web 入口（唯一对外目录）
 │   ├── index.php         # 前置控制器
-│   ├── .htaccess         # Apache 重写
-│   └── assets/           # 后台 CSS/JS
+│   ├── .htaccess         # Apache 重写 + 安全规则
+│   ├── assets/           # 后台 CSS/JS
+│   └── themes/           # 主题（PHP 文件受 .htaccess 保护）
 ├── app/
 │   ├── Controllers/
 │   │   ├── Web/          # 前台控制器（9 个）
@@ -201,7 +202,7 @@ blog/
 │   └── Support/          # Config + helpers.php
 ├── resources/
 │   ├── views/            # 后台视图
-│   └── themes/default/  # 默认主题
+│   └── themes/default/  # 默认主题（已迁移至 public/themes/）
 ├── plugins/              # 插件目录
 ├── storage/              # 运行时存储
 │   ├── cache/

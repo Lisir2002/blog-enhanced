@@ -182,7 +182,7 @@ class ThemeSystemTest extends TestCase
         $this->assertSame('default', $theme->activeTheme());
 
         $path = $theme->path();
-        $this->assertStringEndsWith('resources/themes/default', $path);
+        $this->assertStringEndsWith('public/themes/default', $path);
 
         $assetUrl = $theme->asset('css/style.css');
         $this->assertStringContainsString('themes/default', $assetUrl);
