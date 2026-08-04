@@ -119,4 +119,16 @@
             });
         });
     })();
+
+    // ─── Mobile TOC toggle ─────────────────────────────────
+    (function () {
+        var tocMobile = document.getElementById('tocMobile');
+        if (!tocMobile) return;
+        var toggle = tocMobile.querySelector('.blog-toc-mobile__toggle');
+        if (toggle) {
+            toggle.addEventListener('click', function () {
+                tocMobile.classList.toggle('is-open');
+            });
+        }
+    })();
 })();

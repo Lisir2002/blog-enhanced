@@ -54,6 +54,19 @@ if ($tocHtml !== '') {
                     </div>
                 <?php endif; ?>
 
+                <?php if ($tocHtml !== ''): ?>
+                <!-- Mobile TOC: collapsible inline (≤1024px) -->
+                <div class="blog-toc-mobile" id="tocMobile">
+                    <button class="blog-toc-mobile__toggle" type="button" aria-label="展开目录">
+                        <span>📖 目录</span>
+                        <svg class="blog-toc-mobile__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="blog-toc-mobile__body">
+                        <?= $tocHtml ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <div class="blog-single__content">
                     <?= $contentHtml ?>
                 </div>
