@@ -171,6 +171,9 @@ class Router
             }
             $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
 
+            // Inject route context for Conditional tags
+            \Core\View\Conditional::set($route['name'], $params);
+
             // Run middleware
             foreach ($route['middleware'] as $mw) {
                 if (isset($this->globalMiddleware[$mw])) {

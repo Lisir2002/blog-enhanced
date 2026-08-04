@@ -12,9 +12,4 @@ class ViewProvider extends Provider
         $this->app->singleton(ViewRenderer::class);
         $this->app->singleton(ThemeManager::class);
     }
-
-    public function boot(): void
-    {
-        $this->app->get(ThemeManager::class)->boot();
-    }
 }

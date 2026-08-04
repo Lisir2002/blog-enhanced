@@ -2,7 +2,6 @@
 /**
  * Header partial
  * @var string $pageTitle
- * @var array $data
  */
 $siteName = \App\Models\Option::get('site_name', config('app.name'));
 $siteDesc = \App\Models\Option::get('site_description', '');
@@ -16,46 +15,22 @@ $currentPage = app(\Core\Http\Request::class)->path();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ?? $siteName) ?></title>
     <link rel="alternate" type="application/rss+xml" title="<?= e($siteName) ?>" href="<?= url('/feed') ?>">
-    <link rel="icon" href="<?= e($logoUrl ?: asset('themes/default/assets/img/favicon.svg')) ?>">
-    <link rel="stylesheet" href="<?= asset('themes/default/assets/css/style.css') ?>">
-    <?php do_action('wp_head') ?>
+    <link rel="icon" href="<?= e($logoUrl ?: theme_asset('assets/img/favicon.svg')) ?>">
+    <?php wp_head() ?>
 </head>
-<body>
-<a class="skip-link" href="#main">跳到主内容</a>
+<body class="<?= body_class() ?>">
 <header class="site-header">
-    <div class="container">
-        <div class="site-branding">
+    <div class="container header-inner">
+        <a href="<?= url('/') ?>" class="logo">
             <?php if ($logoUrl): ?>
-                <a href="<?= url('/') ?>" class="logo-link"><img src="<?= e($logoUrl) ?>" alt="<?= e($siteName) ?>"></a>
+                <img src="<?= e($logoUrl) ?>" alt="<?= e($siteName) ?>">
             <?php else: ?>
-                <a href="<?= url('/') ?>" class="site-title"><?= e($siteName) ?></a>
+                <strong><?= e($siteName) ?></strong>
             <?php endif; ?>
-            <?php if ($siteDesc): ?>
-                <p class="site-description"><?= e($siteDesc) ?></p>
-            <?php endif; ?>
-        </div>
-        <nav class="main-nav" aria-label="主导航">
-            <button class="menu-toggle" aria-expanded="false" aria-controls="primary-menu">
-                <span class="menu-icon"></span>
-            </button>
-            <ul id="primary-menu" class="menu">
-                <li class="menu-item<?= $currentPage === '/' ? ' active' : '' ?>"><a href="<?= url('/') ?>">首页</a></li>
-                <?php
-                $cats = \App\Models\Category::query()->where('parent_id', '=', 0)->orderBy('name', 'ASC')->get();
-                foreach ($cats as $c):
-                    $cat = $c instanceof \App\Models\Category ? $c : new \App\Models\Category($c);
-                ?>
-                    <li class="menu-item<?= str_starts_with($currentPage, '/category/' . $cat->getAttribute('slug')) ? ' active' : '' ?>">
-                        <a href="<?= $cat->url() ?>"><?= e($cat->getAttribute('name')) ?></a>
-                    </li>
-                <?php endforeach; ?>
-                <li class="menu-item search-item">
-                    <form action="<?= url('/search') ?>" method="get" class="search-form" role="search">
-                        <input type="search" name="q" placeholder="搜索文章..." value="<?= e(app(\Core\Http\Request::class)->input('q', '')) ?>" aria-label="搜索">
-                        <button type="submit" class="search-btn" aria-label="搜索">🔍</button>
-                    </form>
-                </li>
-            </ul>
+        </a>
+        <button class="menu-toggle" aria-label="菜单" aria-expanded="false">☰</button>
+        <nav class="main-nav" role="navigation">
+            <?= wp_nav_menu(['theme_location' => 'primary', 'menu_class' => 'menu', 'fallback' => true]) ?>
         </nav>
     </div>
 </header>

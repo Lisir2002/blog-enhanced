@@ -6,8 +6,68 @@
     "homepage": "https://example.com",
     "license": "MIT",
     "screenshot": "screenshot.png",
+    "requires": ">=1.0",
+    "parent": null,
+
+    "menus": {
+        "primary": "主导航",
+        "footer": "页脚导航"
+    },
+
+    "sidebars": {
+        "sidebar-1": {
+            "name": "主侧边栏",
+            "description": "文章页右侧边栏",
+            "before_widget": "<section class=\"widget %s\">",
+            "after_widget": "</section>",
+            "before_title": "<h3 class=\"widget-title\">",
+            "after_title": "</h3>"
+        },
+        "footer-1": {
+            "name": "页脚区域",
+            "description": "页脚 Widget 区"
+        }
+    },
+
+    "page_templates": {
+        "full-width": "全宽页面",
+        "landing": "落地页"
+    },
+
     "options": {
-        "accent_color": "#3b82f6",
-        "layout": "sidebar-right"
+        "accent_color": {
+            "type": "color",
+            "label": "主题色",
+            "default": "#3b82f6"
+        },
+        "layout": {
+            "type": "select",
+            "label": "布局",
+            "default": "sidebar-right",
+            "choices": {
+                "sidebar-right": "右侧边栏",
+                "sidebar-left": "左侧边栏",
+                "full-width": "全宽"
+            }
+        },
+        "custom_css": {
+            "type": "textarea",
+            "label": "自定义 CSS"
+        }
+    },
+
+    "styles": {
+        "style": {
+            "src": "assets/css/style.css",
+            "deps": []
+        }
+    },
+
+    "scripts": {
+        "main": {
+            "src": "assets/js/main.js",
+            "deps": [],
+            "footer": true
+        }
     }
 }

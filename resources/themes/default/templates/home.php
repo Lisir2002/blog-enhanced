@@ -21,45 +21,33 @@ get_header();
             <?php else: ?>
                 <div class="post-list">
                     <?php foreach ($posts as $r): $post = new \App\Models\Post($r); ?>
-                        <article class="post-card">
+                        <article class="<?= post_class() ?>">
                             <div class="post-card-inner">
                                 <?php if ($post->getAttribute('cover')): ?>
-                                <a class="cover" href="<?= $post->url() ?>">
-                                    <img src="<?= url($post->getAttribute('cover')) ?>" alt="<?= e($post->getAttribute('title')) ?>" loading="lazy">
-                                </a>
-                                <?php else: ?>
-                                <a class="cover" href="<?= $post->url() ?>" aria-hidden="true" tabindex="-1"></a>
+                                    <a href="<?= $post->url() ?>" class="post-thumb">
+                                        <img src="<?= e($post->getAttribute('cover')) ?>" alt="<?= e($post->getAttribute('title')) ?>" loading="lazy">
+                                    </a>
                                 <?php endif; ?>
                                 <div class="body">
-                                    <div class="meta">
+                                    <h2 class="title"><a href="<?= $post->url() ?>"><?= e($post->getAttribute('title')) ?></a></h2>
+                                    <div class="post-meta">
+                                        <time datetime="<?= e($post->getAttribute('published_at') ?? $post->getAttribute('created_at')) ?>"><?= e(date('Y-m-d', strtotime($post->getAttribute('published_at') ?? $post->getAttribute('created_at')))) ?></time>
                                         <?php $cat = $post->category(); if ($cat): ?>
-                                            <a href="<?= $cat->url() ?>"><?= e($cat->getAttribute('name')) ?></a>
-                                        <?php endif; ?>
-                                        <span><?= substr((string) $post->getAttribute('published_at'), 0, 10) ?></span>
-                                        <?php $author = $post->author(); if ($author): ?>
-                                            <span>by <a href="<?= url('/author/' . $author->getAttribute('username')) ?>"><?= e($author->displayName()) ?></a></span>
+                                            <span class="cat-link"><a href="<?= $cat->url() ?>"><?= e($cat->getAttribute('name')) ?></a></span>
                                         <?php endif; ?>
                                     </div>
-                                    <h2 class="title"><a href="<?= $post->url() ?>"><?= e($post->getAttribute('title')) ?></a></h2>
                                     <p class="excerpt"><?= e($post->excerpt(160)) ?></p>
-                                    <a class="read-more" href="<?= $post->url() ?>">阅读全文 →</a>
                                 </div>
                             </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
 
-                <?php if ($totalPages > 1): ?>
-                <nav class="pagination" aria-label="分页">
-                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <?php if ($i == $page): ?>
-                            <span class="current"><?= $i ?></span>
-                        <?php else: ?>
-                            <a href="<?= $i === 1 ? url('/') : url('/page/' . $i) ?>"><?= $i ?></a>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-                </nav>
-                <?php endif; ?>
+                <?= paginate_links([
+                    'total'     => $totalPages,
+                    'current'   => $page,
+                    'base'      => $page === 1 ? url('/page/%#%') : url('/page/%#%'),
+                ]) ?>
             <?php endif; ?>
         </main>
         <?php get_sidebar(); ?>

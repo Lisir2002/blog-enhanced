@@ -98,4 +98,187 @@ $cli->add('seed', function ($args) {
     return 0;
 }, '填充种子数据');
 
+$cli->add('make:theme', function ($args) {
+    $name = $args[0] ?? '';
+    if ($name === '') {
+        echo "Usage: php blog make:theme <name>\n";
+        return 1;
+    }
+
+    // PascalCase class name
+    $className = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $name)));
+    $dir = themes_path($name);
+
+    if (is_dir($dir)) {
+        echo "Theme [$name] already exists at $dir\n";
+        return 1;
+    }
+
+    // Create directory structure
+    foreach (['templates', 'partials', 'assets/css', 'assets/js', 'assets/img', 'Widgets'] as $sub) {
+        @mkdir("$dir/$sub", 0777, true);
+    }
+
+    // theme.json
+    file_put_contents("$dir/theme.json", json_encode([
+        'name'        => $className,
+        'version'     => '1.0.0',
+        'description' => "$className 主题",
+        'author'      => '',
+        'license'     => 'MIT',
+        'screenshot'  => 'screenshot.png',
+        'requires'    => '>=1.0',
+        'parent'      => null,
+        'menus'       => ['primary' => '主导航'],
+        'sidebars'    => ['sidebar-1' => ['name' => '主侧边栏', 'description' => '']],
+        'page_templates' => new \stdClass(),
+        'options'     => new \stdClass(),
+        'styles'      => ['style' => ['src' => 'assets/css/style.css', 'deps' => []]],
+        'scripts'     => ['main' => ['src' => 'assets/js/main.js', 'deps' => [], 'footer' => true]],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n");
+
+    // functions.php
+    file_put_contents("$dir/functions.php", '<?php
+
+/**
+ * ' . $className . ' 主题入口
+ */
+
+use App\Models\Option;
+
+// 注册菜单
+register_nav_menu(\'primary\', \'主导航\');
+
+// 注册 Widget 区域
+register_sidebar([
+    \'id\'            => \'sidebar-1\',
+    \'name\'          => \'主侧边栏\',
+    \'description\'   => \'文章页右侧边栏\',
+]);
+
+// 排队 CSS/JS
+add_action(\'wp_enqueue\', function () {
+    enqueue_style(\'style\', theme_asset(\'assets/css/style.css\'), [], \'1.0.0\');
+    enqueue_script(\'main\', theme_asset(\'assets/js/main.js\'), [], \'1.0.0\', true);
+});
+
+// 站点 <head> 输出
+add_action(\'wp_head\', function () {
+    $siteName = Option::get(\'site_name\', config(\'app.name\'));
+    $desc = Option::get(\'site_description\', \'\');
+    echo "<meta name=\"description\" content=\"" . e($desc) . "\">\n";
+    echo "<meta property=\"og:site_name\" content=\"" . e($siteName) . "\">\n";
+});
+');
+
+    // Minimal templates
+    $header = '<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= e($pageTitle ?? \'Blog\') ?></title>
+    <?php wp_head() ?>
+</head>
+<body class="<?= body_class() ?>">
+<header class="site-header">
+    <div class="container">
+        <a href="<?= url(\'/\') ?>"><?= e(Option::get(\'site_name\', \'Blog\')) ?></a>
+        <?= wp_nav_menu([\'theme_location\' => \'primary\']) ?>
+    </div>
+</header>
+<div id="main" class="site-content">
+';
+
+    $footer = '</div>
+<footer class="site-footer">
+    <p><?= e(apply_filters(\'footer_text\', \'© \' . date(\'Y\') . \' Blog\')) ?></p>
+</footer>
+<?php wp_footer() ?>
+</body>
+</html>
+';
+
+    $sidebar = '<aside class="sidebar">
+    <?php dynamic_sidebar(\'sidebar-1\') ?>
+</aside>
+';
+
+    $home = '<?php get_header() ?>
+<div class="container">
+    <main class="content-area">
+        <?php foreach ($posts ?? [] as $r): $post = new \App\Models\Post($r); ?>
+            <article class="<?= post_class() ?>">
+                <h2><a href="<?= $post->url() ?>"><?= e($post->getAttribute(\'title\')) ?></a></h2>
+                <p><?= e($post->excerpt(160)) ?></p>
+            </article>
+        <?php endforeach ?>
+        <?= paginate_links([\'total\' => $totalPages ?? 1, \'current\' => $page ?? 1]) ?>
+    </main>
+    <?php get_sidebar() ?>
+</div>
+<?php get_footer()
+';
+
+    $single = '<?php get_header() ?>
+<div class="container">
+    <main class="content-area">
+        <article class="<?= post_class() ?>">
+            <h1><?= e($post->getAttribute(\'title\')) ?></h1>
+            <div class="post-meta">
+                <time><?= e($post->getAttribute(\'published_at\')) ?></time>
+                <?php if ($author = $post->author()): ?>
+                    <span><?= e($author->displayName()) ?></span>
+                <?php endif ?>
+                <?= reading_time($post) ?>
+            </div>
+            <div class="post-content"><?= $post->html() ?></div>
+        </article>
+    </main>
+    <?php get_sidebar() ?>
+</div>
+<?php get_footer()
+';
+
+    $pageTpl = '<?php get_header() ?>
+<div class="container">
+    <main class="content-area">
+        <article>
+            <h1><?= e($page[\'title\']) ?></h1>
+            <div class="post-content"><?= $html ?></div>
+        </article>
+    </main>
+</div>
+<?php get_footer()
+';
+
+    $notFound = '<?php get_header() ?>
+<div class="container">
+    <main class="content-area">
+        <p>404 — <?= e($message ?? \'页面不存在\') ?></p>
+    </main>
+</div>
+<?php get_footer()
+';
+
+    file_put_contents("$dir/partials/header.php", $header);
+    file_put_contents("$dir/partials/footer.php", $footer);
+    file_put_contents("$dir/partials/sidebar.php", $sidebar);
+    file_put_contents("$dir/templates/home.php", $home);
+    file_put_contents("$dir/templates/single.php", $single);
+    file_put_contents("$dir/templates/page.php", $pageTpl);
+    file_put_contents("$dir/templates/404.php", $notFound);
+
+    // CSS
+    file_put_contents("$dir/assets/css/style.css", "/* $className theme */\nbody { font-family: sans-serif; margin: 0; }\n.container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }\n");
+
+    // JS
+    file_put_contents("$dir/assets/js/main.js", "/* $className theme JS */\n");
+
+    echo "  ✓ Theme [$name] created at $dir\n";
+    echo "  ✓ Edit theme.json to configure menus, sidebars, options\n";
+    echo "  ✓ Activate: visit admin → Themes\n";
+    return 0;
+}, '生成主题骨架 (make:theme <name>)');
+
 exit($cli->run($argv));

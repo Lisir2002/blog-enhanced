@@ -12,12 +12,11 @@
             <nav class="footer-nav">
                 <a href="<?= url('/feed') ?>">RSS</a>
                 <a href="<?= url('/sitemap.xml') ?>">Sitemap</a>
+                <?= wp_nav_menu(['theme_location' => 'footer', 'container' => 'span', 'menu_class' => 'footer-menu']) ?>
             </nav>
         </div>
     </div>
 </footer>
-
-<script src="<?= asset('themes/default/assets/js/main.js') ?>"></script>
-<?php do_action('wp_footer') ?>
+<?php wp_footer() ?>
 </body>
 </html>

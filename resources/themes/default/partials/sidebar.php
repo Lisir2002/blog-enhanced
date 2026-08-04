@@ -1,9 +1,18 @@
 <?php
 /**
- * Sidebar partial
+ * Sidebar partial — 优先输出 Widget 区域，无 Widget 时降级到内置内容
  * @var array $categories
  * @var array $tags
  */
+$wm = app(\Core\View\WidgetManager::class);
+$sidebarHtml = $wm->renderSidebar('sidebar-1');
+
+if (trim($sidebarHtml) !== '') {
+    echo $sidebarHtml;
+    return;
+}
+
+// Fallback: built-in sidebar content
 if (!isset($categories)) {
     $categories = \App\Models\Category::all();
 }
@@ -27,8 +36,8 @@ $recent = \App\Models\Post::published(1, 5);
 
     <section class="widget widget-categories">
         <h3 class="widget-title">分类</h3>
-        <ul class="cat-list">
-            <?php foreach ($categories as $cat): $cat = $cat instanceof \App\Models\Category ? $cat : new \App\Models\Category($cat); ?>
+        <ul class="category-list">
+            <?php foreach ($categories as $c): $cat = $c instanceof \App\Models\Category ? $c : new \App\Models\Category($c); ?>
                 <li>
                     <a href="<?= $cat->url() ?>"><?= e($cat->getAttribute('name')) ?></a>
                     <span class="count"><?= $cat->postCount() ?></span>
@@ -53,4 +62,3 @@ $recent = \App\Models\Post::published(1, 5);
 
     <?php do_action('sidebar_bottom') ?>
 </aside>
-

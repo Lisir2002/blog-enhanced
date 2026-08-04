@@ -28,7 +28,8 @@
         "psr-4": {
             "App\\": "app/",
             "Core\\": "core/",
-            "Database\\Migrations\\": "database/migrations/"
+            "Database\\Migrations\\": "database/migrations/",
+            "Themes\\Default\\": "resources/themes/default/"
         },
         "files": [
             "core/Support/helpers.php",

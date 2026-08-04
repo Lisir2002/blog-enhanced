@@ -23,6 +23,7 @@ class Application extends Container
         Providers\HookProvider::class,
         Providers\ParsedownProvider::class,
         Providers\ViewProvider::class,
+        Providers\ThemeServiceProvider::class,
         Providers\PluginProvider::class,
         Providers\RouteServiceProvider::class,
     ];
@@ -66,7 +67,12 @@ class Application extends Container
 
         // Phase 2: boot all services (can safely resolve & use services)
         foreach ($instances as $provider) {
-            $provider->boot();
+            try {
+                $provider->boot();
+            } catch (\Throwable $e) {
+                // Log to error_log as fallback (Log class may not be available yet)
+                error_log('Provider boot failed: ' . get_class($provider) . ' — ' . $e->getMessage());
+            }
         }
     }
 
