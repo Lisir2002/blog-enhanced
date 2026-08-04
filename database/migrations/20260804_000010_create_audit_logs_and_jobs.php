@@ -8,7 +8,7 @@ use Core\Database\Migration;
 /**
  * 创建审计日志表和队列表
  */
-class CreateAuditLogsAndJobsTables extends Migration
+class CreateAuditLogsAndJobs extends Migration
 {
     public function up(): void
     {
