@@ -78,40 +78,11 @@ class Application extends Container
     {
         $router = $this->get(Router::class);
 
-        // Register built-in middleware
-        $router->middleware('auth', function ($params) {
-            $auth = $this->get(\Core\Auth\AuthManager::class);
-            if (!$auth->check()) {
-                $sess = $this->get(Session::class);
-                $sess->set('_url_redirect', $_SERVER['REQUEST_URI'] ?? '/');
-                return (new Response())->redirect(url('login'));
-            }
-        });
-
-        $router->middleware('admin', function ($params) {
-            $auth = $this->get(\Core\Auth\AuthManager::class);
-            if (!$auth->check() || !in_array($auth->user()->getAttribute('role'), ['admin','editor','author','contributor'])) {
-                if ($auth->guest()) {
-                    return (new Response())->redirect(url('login'));
-                }
-                return (new Response())->setBody('Forbidden. Admin role required.')->setStatus(403);
-            }
-        });
-
-        $router->middleware('csrf', function ($params) {
-            $sess = $this->get(Session::class);
-            $token = $_POST['_token'] ?? $_POST['_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
-            if (!$sess->verifyCsrf($token)) {
-                return (new Response())->setBody('CSRF token mismatch.')->setStatus(419);
-            }
-        });
-
-        $router->middleware('guest', function ($params) {
-            $auth = $this->get(\Core\Auth\AuthManager::class);
-            if ($auth->check()) {
-                return (new Response())->redirect(url('admin'));
-            }
-        });
+        // Register built-in middleware (class-based → container resolves with DI)
+        $router->middleware('auth', \Core\Http\Middleware\AuthMiddleware::class);
+        $router->middleware('admin', \Core\Http\Middleware\AdminMiddleware::class);
+        $router->middleware('csrf', \Core\Http\Middleware\CsrfMiddleware::class);
+        $router->middleware('guest', \Core\Http\Middleware\GuestMiddleware::class);
 
         // Load admin & api routes first, then web routes last (catch-all must be final)
         if (is_file(route_path('admin.php'))) {

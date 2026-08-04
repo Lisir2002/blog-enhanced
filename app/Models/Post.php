@@ -84,6 +84,76 @@ class Post extends Model
         return array_map(fn($r) => new Comment($r), $rows);
     }
 
+    /**
+     * 已审核评论数。
+     */
+    public function commentCount(): int
+    {
+        $postId = $this->getAttribute('id');
+        if (!$postId) {
+            return 0;
+        }
+        return Comment::query()
+            ->where('post_id', '=', $postId)
+            ->where('status', '=', 'approved')
+            ->count();
+    }
+
+    /**
+     * 相关文章 — 同分类优先，其次同标签，排除自身。
+     *
+     * @return array<int, Post>
+     */
+    public function related(int $limit = 5): array
+    {
+        $id = $this->getAttribute('id');
+        $catId = $this->getAttribute('category_id');
+        if (!$id) {
+            return [];
+        }
+
+        // 先查同分类
+        $qb = static::query()
+            ->where('id', '!=', $id)
+            ->where('status', '=', 'published')
+            ->where('published_at', '<=', date('Y-m-d H:i:s'));
+        if ($catId) {
+            $qb = $qb->where('category_id', '=', $catId);
+        }
+        $rows = $qb->orderBy('published_at', 'DESC')
+            ->limit($limit)
+            ->get();
+
+        // 同分类不够则用同标签补
+        if (count($rows) < $limit) {
+            $tagIds = array_map(
+                fn($t) => $t->getAttribute('id'),
+                $this->tags(),
+            );
+            if (!empty($tagIds)) {
+                $existing = array_map(fn($r) => $r['id'] ?? null, $rows);
+                $tagQb = app(\Core\Database\QueryBuilder::class)
+                    ->table('post_tag')
+                    ->select('posts.*')
+                    ->join('posts', 'posts.id = post_tag.post_id')
+                    ->whereIn('post_tag.tag_id', $tagIds)
+                    ->where('posts.id', '!=', $id)
+                    ->where('posts.status', '=', 'published')
+                    ->where('posts.published_at', '<=', date('Y-m-d H:i:s'));
+                if (!empty($existing)) {
+                    $tagQb = $tagQb->whereNotIn('posts.id', $existing);
+                }
+                $extra = $tagQb
+                    ->orderBy('posts.published_at', 'DESC')
+                    ->limit($limit - count($rows))
+                    ->get();
+                $rows = array_merge($rows, $extra);
+            }
+        }
+
+        return array_map(fn($r) => new static($r), $rows);
+    }
+
     public function incrementViews(): void
     {
         $id = $this->getAttribute('id');

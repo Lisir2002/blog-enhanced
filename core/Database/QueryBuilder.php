@@ -97,6 +97,22 @@ class QueryBuilder
         return $new;
     }
 
+    public function whereNotIn(string $column, array $values): static
+    {
+        $new = clone $this;
+        if (empty($values)) {
+            return $new;
+        }
+        $placeholders = [];
+        foreach ($values as $v) {
+            $placeholder = $new->nextPlaceholder();
+            $placeholders[] = $placeholder;
+            $new->bindings[$placeholder] = $v;
+        }
+        $new->wheres[] = ['AND', "$column NOT IN (" . implode(', ', $placeholders) . ")"];
+        return $new;
+    }
+
     public function whereNull(string $column): static
     {
         $new = clone $this;

@@ -174,7 +174,16 @@ class Router
             // Run middleware
             foreach ($route['middleware'] as $mw) {
                 if (isset($this->globalMiddleware[$mw])) {
-                    $result = ($this->globalMiddleware[$mw])($params);
+                    $handler = $this->globalMiddleware[$mw];
+                    // 类字符串 → 通过容器解析（支持构造函数注入）
+                    if (is_string($handler) && class_exists($handler)) {
+                        $instance = app($handler);
+                        $result = method_exists($instance, 'handle')
+                            ? $instance->handle($params)
+                            : $instance($params);
+                    } else {
+                        $result = $handler($params);
+                    }
                     if ($result instanceof \Core\Http\Response) {
                         return $result;
                     }

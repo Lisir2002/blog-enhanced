@@ -30,7 +30,11 @@
             "Core\\": "core/"
         },
         "files": [
-            "core/Support/helpers.php"
+            "core/Support/helpers.php",
+            "core/Support/helpers_http.php",
+            "core/Support/helpers_auth.php",
+            "core/Support/helpers_hook.php",
+            "core/Support/helpers_theme.php"
         ]
     },
     "autoload-dev": {
