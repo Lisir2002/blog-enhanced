@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS posts (
     published_at    TEXT,
     seo_title       TEXT,
     seo_description TEXT,
+    featured_image_id INTEGER,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL,
     FOREIGN KEY (author_id)   REFERENCES users(id) ON DELETE SET NULL,
@@ -141,3 +142,16 @@ CREATE TABLE IF NOT EXISTS pages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pages_slug ON pages(slug);
+
+CREATE TABLE IF NOT EXISTS post_revisions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id     INTEGER NOT NULL,
+    author_id   INTEGER,
+    title       TEXT NOT NULL,
+    content_md  TEXT,
+    excerpt     TEXT,
+    created_at  TEXT NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_revisions_post ON post_revisions(post_id);

@@ -44,4 +44,38 @@ class Comment extends Model
             ->get();
         return array_map(fn($r) => new static($r), $rows);
     }
+
+    /**
+     * 嵌套评论树（递归获取子评论）。
+     *
+     * @return array<int, Comment> 带 replies 子树
+     */
+    public function nestedReplies(): array
+    {
+        $replies = $this->replies();
+        foreach ($replies as $reply) {
+            $reply->setAttribute('_nested_replies', $reply->nestedReplies());
+        }
+        return $replies;
+    }
+
+    /**
+     * 评论深度（根评论返回 0）。
+     */
+    public function depth(): int
+    {
+        $depth = 0;
+        $parentId = $this->getAttribute('parent_id');
+        $visited = [];
+        while ($parentId && $parentId > 0 && !isset($visited[$parentId])) {
+            $visited[$parentId] = true;
+            $parent = static::find($parentId);
+            if (!$parent) {
+                break;
+            }
+            $depth++;
+            $parentId = $parent->getAttribute('parent_id');
+        }
+        return $depth;
+    }
 }

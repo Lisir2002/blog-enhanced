@@ -55,24 +55,32 @@ class Config
 
     /**
      * Get config value by dotted key.
+     * 优先级: runtime set() > $_ENV > config files > default
      */
     public function get(string $key, mixed $default = null): mixed
     {
-        // First try .env override for app.* keys
+        // First check runtime config (set by set())
+        $parts = explode('.', $key);
+        $value = $this->items;
+        $found = true;
+        foreach ($parts as $part) {
+            if (!is_array($value) || !array_key_exists($part, $value)) {
+                $found = false;
+                break;
+            }
+            $value = $value[$part];
+        }
+        if ($found) {
+            return $value;
+        }
+
+        // Then try .env override
         $envKey = strtoupper(str_replace('.', '_', $key));
         if (isset($_ENV[$envKey])) {
             return $_ENV[$envKey];
         }
 
-        $parts = explode('.', $key);
-        $value = $this->items;
-        foreach ($parts as $part) {
-            if (!is_array($value) || !array_key_exists($part, $value)) {
-                return $default;
-            }
-            $value = $value[$part];
-        }
-        return $value;
+        return $default;
     }
 
     public function set(string $key, mixed $value): void

@@ -24,6 +24,7 @@ class Application extends Container
         Providers\ParsedownProvider::class,
         Providers\ViewProvider::class,
         Providers\ThemeServiceProvider::class,
+        Providers\AdvancedServiceProvider::class,
         Providers\PluginProvider::class,
         Providers\RouteServiceProvider::class,
     ];

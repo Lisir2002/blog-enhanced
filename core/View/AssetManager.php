@@ -57,6 +57,9 @@ class AssetManager
         $html = '';
         foreach ($sorted as $id => $asset) {
             $url = $this->addVersion($asset['src'], $asset['ver']);
+            if (!config('app.debug', false) && !str_contains($url, '.min.')) {
+                $url = $this->tryMinify($url, 'css');
+            }
             $html .= "<link rel=\"stylesheet\" href=\"{$url}\">\n";
         }
         return $html;
@@ -136,5 +139,21 @@ class AssetManager
             return $src . $sep . 'ver=' . urlencode($ver);
         }
         return $src;
+    }
+
+    /**
+     * 尝试使用 .min 版本（如果文件存在）。
+     */
+    private function tryMinify(string $url, string $ext): string
+    {
+        // 将 URL 转为文件路径
+        $path = parse_url($url, PHP_URL_PATH) ?? '';
+        $docRoot = public_path();
+        $filePath = $docRoot . $path;
+        $minPath = preg_replace('/\.' . $ext . '$/', '.min.' . $ext, $filePath);
+        if ($minPath !== $filePath && is_file($minPath)) {
+            return preg_replace('/\.' . $ext . '$/', '.min.' . $ext, $url);
+        }
+        return $url;
     }
 }

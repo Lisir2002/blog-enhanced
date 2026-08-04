@@ -65,6 +65,14 @@ class FileCache implements CacheInterface
         return true;
     }
 
+    /**
+     * 别名 clear()。
+     */
+    public function flush(): bool
+    {
+        return $this->clear();
+    }
+
     public function has(string $key): bool
     {
         return $this->get($key, $this) !== $this;

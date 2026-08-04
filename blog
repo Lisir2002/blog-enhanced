@@ -281,4 +281,39 @@ add_action(\'wp_head\', function () {
     return 0;
 }, '生成主题骨架 (make:theme <name>)');
 
+$cli->add('hooks:list', function ($args) {
+    echo "Blog CMS — Hook Reference\n\n";
+
+    $hooks = [
+        ['wp_head', 'Action', '<head> 区域输出', 'header.php'],
+        ['wp_footer', 'Action', '页脚区域输出', 'footer.php'],
+        ['wp_enqueue', 'Action', '排队 CSS/JS', 'functions.php'],
+        ['init', 'Action', '系统初始化完成', 'bootstrap'],
+        ['theme_loaded', 'Action', '主题加载完成', 'ThemeManager::boot()'],
+        ['after_switch_theme', 'Action', '主题激活后', 'ThemeManager::activate()'],
+        ['sidebar_bottom', 'Action', '侧边栏底部', 'sidebar.php'],
+        ['post_saved', 'Action', '文章保存后', 'PostService::create/update'],
+        ['post_loaded', 'Action', '文章加载后', 'Web/PostController::show'],
+        ['comment_created', 'Action', '评论创建后', 'CommentController::store'],
+        ['widgets_init', 'Action', 'Widget 初始化', 'functions.php'],
+        ['the_content', 'Filter', '文章内容 HTML', 'Post::html()'],
+        ['the_title', 'Filter', '文章标题', '模板标签'],
+        ['the_excerpt', 'Filter', '文章摘要', 'Post::excerpt()'],
+        ['comment_text', 'Filter', '评论文本', 'Comment::html()'],
+        ['footer_text', 'Filter', '页脚版权文字', 'footer.php'],
+        ['body_class', 'Filter', 'body CSS 类', 'body_class()'],
+        ['post_class', 'Filter', 'article CSS 类', 'post_class()'],
+        ['nav_menu', 'Filter', '导航菜单 HTML', 'wp_nav_menu()'],
+        ['the_content_max_excerpt', 'Filter', '摘要最大长度', 'Post::excerpt()'],
+    ];
+
+    echo str_pad('Hook', 30) . str_pad('Type', 8) . str_pad('Source', 30) . "Description\n";
+    echo str_repeat('-', 100) . "\n";
+    foreach ($hooks as $h) {
+        echo str_pad($h[0], 30) . str_pad($h[1], 8) . str_pad($h[3], 30) . $h[2] . "\n";
+    }
+    echo "\n  Total: " . count($hooks) . " hooks\n";
+    return 0;
+}, '列出所有可用 Hook');
+
 exit($cli->run($argv));

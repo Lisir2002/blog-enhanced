@@ -54,29 +54,31 @@ XML;
 
     public function sitemap(): Response
     {
-        $baseUrl = config('app.url');
-        $posts = Post::published(1, 1000);
-
-        $urls = "  <url>\n    <loc>{$baseUrl}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n";
-
-        foreach ($posts as $post) {
-            $p = new \App\Models\Post($post);
-            $url = $p->url();
-            $date = substr((string) $p->getAttribute('published_at'), 0, 10);
-            $urls .= "  <url>\n    <loc>{$url}</loc>\n    <lastmod>{$date}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n";
-        }
-
-        $xml = <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-{$urls}</urlset>
-XML;
+        $xml = app(\Core\SEO\Sitemap::class)->generate();
 
         return (new Response())
             ->setContentType('application/xml; charset=UTF-8')
             ->header('Cache-Control', 'public, max-age=3600')
             ->header('ETag', '"' . md5($xml) . '"')
             ->setBody($xml);
+    }
+
+    public function robots(): Response
+    {
+        $baseUrl = config('app.url');
+        $disallow = ['admin', 'login', 'register', 'api'];
+        $lines = ["User-agent: *"];
+        foreach ($disallow as $path) {
+            $lines[] = "Disallow: /$path";
+        }
+        $lines[] = "";
+        $lines[] = "Sitemap: {$baseUrl}/sitemap.xml";
+        $text = implode("\n", $lines) . "\n";
+
+        return (new Response())
+            ->setContentType('text/plain; charset=UTF-8')
+            ->header('Cache-Control', 'public, max-age=3600')
+            ->setBody($text);
     }
 
     private function rssDate(?string $datetime): string

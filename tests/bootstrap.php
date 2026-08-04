@@ -21,6 +21,7 @@ $helperFiles = [
     'helpers_auth.php',
     'helpers_hook.php',
     'helpers_theme.php',
+    'helpers_advanced.php',
 ];
 foreach ($helperFiles as $file) {
     if (!function_exists('app') || ($file === 'helpers_http.php' && !function_exists('url'))) {

@@ -36,7 +36,8 @@
             "core/Support/helpers_http.php",
             "core/Support/helpers_auth.php",
             "core/Support/helpers_hook.php",
-            "core/Support/helpers_theme.php"
+            "core/Support/helpers_theme.php",
+            "core/Support/helpers_advanced.php"
         ]
     },
     "autoload-dev": {

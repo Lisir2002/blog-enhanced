@@ -28,6 +28,7 @@ $router->get('/search', [SearchController::class, 'index'])->name('search');
 
 $router->get('/feed', [FeedController::class, 'rss'])->name('feed.rss');
 $router->get('/sitemap.xml', [FeedController::class, 'sitemap'])->name('sitemap');
+$router->get('/robots.txt', [FeedController::class, 'robots'])->name('robots');
 
 // 登录/登出
 $router->get('/login', [AuthController::class, 'loginForm'])->name('login')->middleware(['guest']);
