@@ -45,18 +45,44 @@ class Post extends Model
 
     public function author(): ?User
     {
+        // 优先返回已加载的关联（预加载场景）
+        if (array_key_exists('author', $this->relations)) {
+            return $this->relations['author'];
+        }
         $id = $this->getAttribute('author_id');
         return $id ? User::find($id) : null;
     }
 
+    /**
+     * BelongsTo 关联 - 用于预加载。
+     */
+    public function authorRelation(): \Core\Database\Relations\BelongsTo
+    {
+        return new \Core\Database\Relations\BelongsTo(User::class, $this, 'author_id', 'id');
+    }
+
     public function category(): ?Category
     {
+        if (array_key_exists('category', $this->relations)) {
+            return $this->relations['category'];
+        }
         $id = $this->getAttribute('category_id');
         return $id ? Category::find($id) : null;
     }
 
+    /**
+     * BelongsTo 关联 - 用于预加载。
+     */
+    public function categoryRelation(): \Core\Database\Relations\BelongsTo
+    {
+        return new \Core\Database\Relations\BelongsTo(Category::class, $this, 'category_id', 'id');
+    }
+
     public function tags(): array
     {
+        if (array_key_exists('tags', $this->relations)) {
+            return $this->relations['tags'];
+        }
         $postId = $this->getAttribute('id');
         if (!$postId) {
             return [];
@@ -70,8 +96,19 @@ class Post extends Model
         return array_map(fn($r) => new Tag($r), $rows);
     }
 
+    /**
+     * BelongsToMany 关联 - 用于预加载。
+     */
+    public function tagsRelation(): \Core\Database\Relations\BelongsToMany
+    {
+        return new \Core\Database\Relations\BelongsToMany(Tag::class, $this, 'post_tag', 'post_id', 'tag_id', 'id');
+    }
+
     public function comments(): array
     {
+        if (array_key_exists('comments', $this->relations)) {
+            return $this->relations['comments'];
+        }
         $postId = $this->getAttribute('id');
         if (!$postId) {
             return [];

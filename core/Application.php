@@ -27,6 +27,8 @@ class Application extends Container
         Providers\AdvancedServiceProvider::class,
         Providers\PluginProvider::class,
         Providers\RouteServiceProvider::class,
+        Providers\QueueProvider::class,
+        Providers\EnhancedServiceProvider::class,
     ];
 
     public function __construct()

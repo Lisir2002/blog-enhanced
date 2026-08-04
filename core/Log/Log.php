@@ -44,14 +44,32 @@ class Log
             return;
         }
 
-        $line = sprintf(
-            "[%s] [%s] %s: %s%s\n",
-            date('Y-m-d H:i:s.v'),
-            strtoupper(basename($_SERVER['SCRIPT_NAME'] ?? 'cli')),
-            $level,
-            $message,
-            $context ? ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : ''
-        );
+        $structured = (bool) config('log.structured', false);
+
+        if ($structured) {
+            // 结构化日志（JSON 格式）
+            $entry = [
+                'timestamp' => date('c'),
+                'level' => $level,
+                'message' => $message,
+                'context' => $context,
+            ];
+            // 追加请求 ID（如果存在）
+            if (isset($_SERVER['X_REQUEST_ID'])) {
+                $entry['request_id'] = $_SERVER['X_REQUEST_ID'];
+            }
+            $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+        } else {
+            // 传统文本格式
+            $line = sprintf(
+                "[%s] [%s] %s: %s%s\n",
+                date('Y-m-d H:i:s.v'),
+                strtoupper(basename($_SERVER['SCRIPT_NAME'] ?? 'cli')),
+                $level,
+                $message,
+                $context ? ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : ''
+            );
+        }
 
         @file_put_contents(self::file(), $line, FILE_APPEND | LOCK_EX);
     }

@@ -316,4 +316,30 @@ $cli->add('hooks:list', function ($args) {
     return 0;
 }, '列出所有可用 Hook');
 
+$cli->add('make', function ($args) {
+    $make = new \Core\Console\Commands\MakeCommand();
+    return $make->handle($args);
+}, '代码生成器 (make:resource/model/controller/middleware)');
+
+$cli->add('queue:work', function ($args) {
+    $app = new \Core\Application();
+    $app->bootstrap();
+    $queue = $app->get(\Core\Queue\Queue::class);
+    $queueName = $args[0] ?? 'default';
+    $maxJobs = (int) ($args[1] ?? 100);
+    $processed = $queue->process($queueName, $maxJobs);
+    echo "Processed $processed jobs from queue [$queueName]\n";
+    return 0;
+}, '处理队列任务 (queue:work [queue] [max])');
+
+$cli->add('queue:size', function ($args) {
+    $app = new \Core\Application();
+    $app->bootstrap();
+    $queue = $app->get(\Core\Queue\Queue::class);
+    $queueName = $args[0] ?? 'default';
+    $size = $queue->size($queueName);
+    echo "Queue [$queueName] size: $size\n";
+    return 0;
+}, '查看队列大小');
+
 exit($cli->run($argv));
