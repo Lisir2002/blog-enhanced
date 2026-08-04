@@ -74,9 +74,18 @@ $logoUrl  = \App\Models\Option::get('logo_url', '');
             <button type="button" class="blog-search__close" id="searchClose" aria-label="关闭搜索">Esc</button>
         </form>
     </div>
+</header>
 
-    <!-- 导航面板（下拉） -->
-    <nav class="blog-nav" id="navPanel" role="navigation" aria-label="主导航">
+<!-- 右侧抽屉导航 -->
+<div class="blog-drawer" id="navDrawer">
+    <div class="blog-drawer__overlay" id="navOverlay"></div>
+    <aside class="blog-drawer__panel" id="navPanel" role="navigation" aria-label="主导航">
+        <div class="blog-drawer__header">
+            <span class="blog-drawer__title">菜单</span>
+            <button class="blog-drawer__close" id="navClose" aria-label="关闭菜单" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
         <?php
         ob_start();
         echo wp_nav_menu(['theme_location' => 'primary', 'menu_class' => 'blog-nav__list', 'fallback' => true]);
@@ -86,7 +95,7 @@ $logoUrl  = \App\Models\Option::get('logo_url', '');
         $navHtml = preg_replace('/<a\s+href=/', '<a class="blog-nav__link" href=', $navHtml);
         echo $navHtml;
         ?>
-    </nav>
-</header>
+    </aside>
+</div>
 
 <div id="main" class="blog-site-content">

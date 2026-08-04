@@ -2,17 +2,28 @@
 (function () {
     'use strict';
 
-    // ─── 导航面板展开/收起 ──────────────────────────────
-    var navToggle = document.getElementById('navToggle');
-    var navPanel  = document.getElementById('navPanel');
-    if (navToggle && navPanel) {
-        navToggle.addEventListener('click', function () {
-            var expanded = navPanel.classList.toggle('is-open');
-            navToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            // 关闭搜索面板
-            if (expanded && searchPanel) searchPanel.classList.remove('is-open');
-        });
+    // ─── 导航抽屉展开/收起 ──────────────────────────────
+    var navToggle  = document.getElementById('navToggle');
+    var navDrawer  = document.getElementById('navDrawer');
+    var navPanel   = document.getElementById('navPanel');
+    var navOverlay = document.getElementById('navOverlay');
+    var navClose   = document.getElementById('navClose');
+
+    function openNav() {
+        if (navDrawer) navDrawer.classList.add('is-open');
+        if (navToggle) navToggle.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+        if (searchPanel) searchPanel.classList.remove('is-open');
     }
+    function closeNav() {
+        if (navDrawer) navDrawer.classList.remove('is-open');
+        if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+    }
+
+    if (navToggle) navToggle.addEventListener('click', openNav);
+    if (navClose)  navClose.addEventListener('click', closeNav);
+    if (navOverlay) navOverlay.addEventListener('click', closeNav);
 
     // ─── 搜索面板展开/收起 ──────────────────────────────
     var searchToggle = document.getElementById('searchToggle');
@@ -25,9 +36,7 @@
             var expanded = searchPanel.classList.toggle('is-open');
             if (expanded) {
                 if (searchInput) searchInput.focus();
-                // 关闭导航面板
-                if (navPanel) navPanel.classList.remove('is-open');
-                if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+                closeNav();
             }
         });
     }
@@ -37,11 +46,17 @@
             if (searchToggle) searchToggle.focus();
         });
     }
-    // Esc 关闭搜索
+    // Esc 关闭搜索/导航
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && searchPanel && searchPanel.classList.contains('is-open')) {
-            searchPanel.classList.remove('is-open');
-            if (searchToggle) searchToggle.focus();
+        if (e.key === 'Escape') {
+            if (searchPanel && searchPanel.classList.contains('is-open')) {
+                searchPanel.classList.remove('is-open');
+                if (searchToggle) searchToggle.focus();
+            }
+            if (navDrawer && navDrawer.classList.contains('is-open')) {
+                closeNav();
+                if (navToggle) navToggle.focus();
+            }
         }
     });
 
@@ -72,16 +87,12 @@
         });
     }
 
-    // ─── 点击外部关闭面板 ────────────────────────────────
-    document.addEventListener('click', function (e) {
-        // 导航面板：点击导航链接后自动收起
-        if (navPanel && navPanel.classList.contains('is-open')) {
-            if (!navPanel.contains(e.target) && navToggle && !navToggle.contains(e.target)) {
-                navPanel.classList.remove('is-open');
-                navToggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-    });
+    // ─── 点击导航链接后自动关闭抽屉 ─────────────────────
+    if (navPanel) {
+        navPanel.querySelectorAll('a').forEach(function (a) {
+            a.addEventListener('click', closeNav);
+        });
+    }
 
     // Lazy-load images below the fold
     if ('loading' in HTMLImageElement.prototype) {
