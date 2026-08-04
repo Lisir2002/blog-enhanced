@@ -57,10 +57,5 @@ class AdvancedServiceProvider extends Provider
             $pageCache->flush(str_replace('/', '-', 'post-' . $id));
             cache_forget('sidebar.recent');
         }, 30);
-
-        // 输出调试条
-        add_action('wp_footer', function () {
-            echo debug_bar();
-        }, 99);
     }
 }
