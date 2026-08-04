@@ -53,7 +53,6 @@ class User extends Model
 
     public function avatarUrl(int $size = 80): string
     {
-        $email = $this->getAttribute('email') ?? '';
         $role = $this->getAttribute('role') ?? 'visitor';
         $defaultMap = [
             'super_admin'   => 'super_admin',
@@ -63,15 +62,8 @@ class User extends Model
             'visitor'       => 'visitor',
         ];
         $avatarKey = $defaultMap[$role] ?? 'visitor';
-        $defaultUrl = url("assets/avatars/{$avatarKey}.jpg");
 
-        if ($email) {
-            $hash = md5(strtolower(trim($email)));
-            $encodedDefault = urlencode($defaultUrl);
-            return "https://www.gravatar.com/avatar/{$hash}?s={$size}&d={$encodedDefault}";
-        }
-
-        return $defaultUrl;
+        return url("assets/avatars/{$avatarKey}.jpg");
     }
 
     public static function boot(): void
