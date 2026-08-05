@@ -967,6 +967,41 @@ select.form-control {
   text-decoration: underline;
 }
 
+/* ---------- Alerts (inline notification blocks) ---------- */
+.alert {
+  display: block;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  border: 1px solid transparent;
+}
+
+.alert strong {
+  font-weight: 700;
+}
+
+.alert ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.alert ul li {
+  margin: 2px 0;
+}
+
+.alert-warning {
+  background: var(--c-warning-subtle);
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.alert-warning a {
+  color: #92400e;
+  font-weight: 600;
+}
+
 /* Stats grid: 2-column variant (responsive) */
 .stats-grid-2 {
   display: grid;
@@ -3116,6 +3151,16 @@ th.sortable .sort-arrow svg {
   margin: 0;
 }
 
+/* Plugin selection checkbox (batch operations) */
+.plugin-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
 .checkbox-mark {
   display: inline-block;
   width: 16px;
@@ -3892,6 +3937,36 @@ th.sortable .sort-arrow svg {
   height: 18px;
   accent-color: var(--c-primary);
   cursor: pointer;
+}
+
+/* Custom checkbox visual marker (used in theme customize page) */
+.checkbox-custom {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--c-border-input);
+  border-radius: 4px;
+  background: var(--c-bg-input);
+  position: relative;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  flex-shrink: 0;
+}
+
+.checkbox-label input[type="checkbox"]:checked ~ .checkbox-custom {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked ~ .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 /* Customize actions */
