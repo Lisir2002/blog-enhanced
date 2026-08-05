@@ -89,11 +89,11 @@ if (!$nonInteractive) {
         // Fallback to defaults
         $adminUser = 'admin';
         $adminEmail = $adminEmail ?: 'admin@example.com';
-        $adminPass = $adminPass ?: 'password123';
+        $adminPass = $adminPass ?: 'admin';
     }
 } else {
     if (empty($adminEmail)) $adminEmail = 'admin@example.com';
-    if (empty($adminPass)) $adminPass = 'password123';
+    if (empty($adminPass)) $adminPass = 'admin';
 }
 
 // Check if admin exists

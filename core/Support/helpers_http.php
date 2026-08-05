@@ -21,10 +21,32 @@ if (!function_exists('url')) {
 if (!function_exists('route')) {
     /**
      * 用路由名 + 参数生成 URL。
+     * 开发模式下若路由不存在，输出清晰的诊断信息而非直接崩溃。
      */
     function route(string $name, array $params = []): string
     {
-        return app(\Core\Router::class)->route($name, $params);
+        try {
+            return app(\Core\Router::class)->route($name, $params);
+        } catch (\RuntimeException $e) {
+            if (config('app.debug')) {
+                // 开发模式：给出诊断信息，帮助快速定位
+                $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
+                $caller = $trace[1] ?? $trace[0] ?? [];
+                $file = $caller['file'] ?? '?';
+                $line = $caller['line'] ?? '?';
+
+                // 记录到日志（不抛出，页面仍可渲染）
+                error_log(sprintf(
+                    '[Route Missing] %s — called from %s:%d. ' .
+                    'Check routes/admin.php or routes/web.php for the missing route definition.',
+                    $name, $file, $line
+                ));
+
+                // 返回占位 URL 而不是崩溃
+                return '/__missing_route?name=' . urlencode($name);
+            }
+            throw $e;
+        }
     }
 }
 

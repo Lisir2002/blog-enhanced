@@ -3,6 +3,7 @@
 namespace Core\Providers;
 
 use Core\Router;
+use Core\Routing\RouteValidator;
 
 class RouteServiceProvider extends Provider
 {
@@ -49,5 +50,27 @@ class RouteServiceProvider extends Provider
 
         // Run 'init' hook before dispatch
         do_action('init');
+
+        // Debug mode: auto-validate routes on every request
+        if (config('app.debug')) {
+            try {
+                $validator = new RouteValidator($router);
+                $result    = $validator->validate();
+                if (!empty($result['missing'])) {
+                    foreach ($result['missing'] as $m) {
+                        error_log(sprintf(
+                            '[Route Missing] %s — referenced in %s:%d. ' .
+                            'Add to routes/admin.php or routes/web.php.',
+                            $m['name'], $m['file'], $m['line']
+                        ));
+                    }
+                    if (count($result['missing']) <= 5) {
+                        error_log($validator->report());
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('Route validation failed: ' . $e->getMessage());
+            }
+        }
     }
 }

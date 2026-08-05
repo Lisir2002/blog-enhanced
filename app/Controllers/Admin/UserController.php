@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Models\User;
+use Core\Database\Connection;
 use Core\Http\Response;
 use Core\Http\Request;
 use Core\Http\Session;
@@ -12,11 +13,111 @@ class UserController
     public function index(): Response
     {
         can_or_403('manage_users');
-        $users = User::query()->orderBy('created_at', 'DESC')->get();
         return view('admin.users.index', [
-            'users'     => $users,
+            'roles'     => \Core\Auth\Capability::roles(),
             'pageTitle' => '用户管理',
         ]);
+    }
+
+    /**
+     * AJAX 搜索接口 - 返回 JSON
+     * 支持：关键词搜索(display_name/username/email)、角色筛选、状态筛选、排序、分页
+     * 使用 POST body 传参，绕过 URL 编码问题
+     */
+    public function search(): Response
+    {
+        can_or_403('manage_users');
+        $request = app(Request::class);
+        $pdo = app(Connection::class)->pdo();
+
+        $page = max(1, (int) $request->input('page', 1));
+        $perPage = 20;
+        $offset = ($page - 1) * $perPage;
+
+        $sql = "SELECT id, username, email, display_name, role, bio, url, status, created_at
+                FROM users
+                WHERE 1=1";
+        $bindings = [];
+
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $sql .= " AND (display_name LIKE :q1 OR username LIKE :q2 OR email LIKE :q3)";
+            $like = '%' . $search . '%';
+            $bindings[':q1'] = $like;
+            $bindings[':q2'] = $like;
+            $bindings[':q3'] = $like;
+        }
+
+        $role = $request->input('role');
+        $validRoles = array_keys(\Core\Auth\Capability::roles());
+        if ($role && in_array($role, $validRoles, true)) {
+            $sql .= " AND role = :role";
+            $bindings[':role'] = $role;
+        }
+
+        $status = $request->input('status');
+        if ($status && in_array($status, ['active', 'inactive', 'banned'], true)) {
+            $sql .= " AND status = :status";
+            $bindings[':status'] = $status;
+        }
+
+        $countSql = "SELECT COUNT(*) FROM ($sql) AS sub";
+        $stmt = $pdo->prepare($countSql);
+        $stmt->execute($bindings);
+        $total = (int) $stmt->fetchColumn();
+
+        $sortMap = [
+            'display_name' => 'display_name',
+            'email'        => 'email',
+            'role'         => 'role',
+            'status'       => 'status',
+            'created_at'   => 'created_at',
+        ];
+        $sort = $request->input('sort', 'created_at');
+        $order = strtolower($request->input('order', 'desc'));
+        if (!isset($sortMap[$sort])) $sort = 'created_at';
+        if (!in_array($order, ['asc', 'desc'])) $order = 'desc';
+        $sql .= " ORDER BY {$sortMap[$sort]} $order";
+
+        $sql .= " LIMIT $perPage OFFSET $offset";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($bindings);
+        $items = $stmt->fetchAll();
+
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
+        return (new Response())->json([
+            'items'      => $items,
+            'total'      => $total,
+            'page'       => $page,
+            'totalPages' => $totalPages,
+            'perPage'    => $perPage,
+        ]);
+    }
+
+    public function batch(): Response
+    {
+        can_or_403('manage_users');
+        $request = app(Request::class);
+        $sess = app(Session::class);
+        $action = $request->input('batch_action');
+        $ids = array_filter(array_map('intval', explode(',', $request->input('batch_ids', ''))));
+        if (empty($ids)) {
+            $sess->flash('error', '请选择要操作的用户');
+            return redirect(route('admin.users.index'));
+        }
+        $currentUserId = (int) current_user()->getAttribute('id');
+        if ($action === 'delete') {
+            $count = 0;
+            foreach ($ids as $id) {
+                if ($id === $currentUserId) continue;
+                $user = User::find($id);
+                if ($user) { $user->delete(); $count++; }
+            }
+            $sess->flash('success', "已删除 {$count} 个用户");
+        }
+        return redirect(route('admin.users.index'));
     }
 
     public function create(): Response

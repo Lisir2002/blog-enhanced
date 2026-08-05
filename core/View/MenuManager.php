@@ -117,6 +117,9 @@ class MenuManager
     private function renderCategoryFallback(string $menuClass, string $container): string
     {
         $html = "<{$container} class=\"{$menuClass}\">\n<ul>\n";
+        // 首页常驻菜单项
+        $html .= '  <li class="menu-item"><a href="' . url('/') . '">首页</a></li>' . "\n";
+        // 全部分类
         $cats = \App\Models\Category::all();
         foreach ($cats as $c) {
             $cat = $c instanceof \App\Models\Category ? $c : new \App\Models\Category($c);

@@ -39,9 +39,6 @@ class Session
         if ($isSecure) {
             ini_set('session.cookie_secure', '1');
         }
-        // 会话 ID 长度与熵
-        ini_set('session.sid_length', '48');
-        ini_set('session.sid_bits_per_character', '6');
         // 防止 JS 读取 cookie，阻止 session fixation（每个请求只读一次）
         ini_set('session.use_strict_mode', '1');
         session_set_cookie_params([
@@ -110,14 +107,13 @@ class Session
      */
     public function flash(string $key, mixed $value): void
     {
-        $old = $this->get('_old_input', []);
-        $old[$key] = $value;
-        $this->set('_old_input', $old);
+        $this->set('_flash_' . $key, $value);
     }
 
     public function flashInput(array $input): void
     {
-        $this->set('_old_input', $input);
+        $old = $this->get('_old_input', []);
+        $this->set('_old_input', array_merge($old, $input));
     }
 
     /**
@@ -125,6 +121,13 @@ class Session
      */
     public function pull(string $key, mixed $default = null): mixed
     {
+        // 先检查 _flash_ 前缀的闪存数据
+        $flashKey = '_flash_' . $key;
+        if ($this->has($flashKey)) {
+            $v = $this->get($flashKey, $default);
+            $this->forget($flashKey);
+            return $v;
+        }
         $v = $this->get($key, $default);
         $this->forget($key);
         return $v;

@@ -8,6 +8,8 @@ class Post extends Model
 {
     protected static string $table = 'posts';
 
+    protected static bool $softDelete = true;
+
     protected array $casts = [
         'id' => 'int',
         'author_id' => 'int',

@@ -5,6 +5,7 @@ namespace App\Controllers\Api;
 use App\Models\Post;
 use App\Models\Category;
 use App\Models\Tag;
+use Core\Http\Request;
 use Core\Http\Response;
 
 /**
@@ -107,5 +108,42 @@ class PostController
         }
 
         return (new Response())->json($arr);
+    }
+
+    public function search(): Response
+    {
+        $request = app(Request::class);
+        $q = trim((string) $request->input('q', ''));
+        if ($q === '') {
+            return (new Response())->json(['data' => []]);
+        }
+
+        $conn = app(\Core\Database\Connection::class);
+        $pdo = $conn->pdo();
+        $like = '%' . $q . '%';
+        $now = date('Y-m-d H:i:s');
+        $limit = min(10, max(1, (int) $request->input('limit', 5)));
+
+        $sql = "SELECT id, title, slug, excerpt, published_at
+                FROM posts
+                WHERE status = 'published' AND published_at <= ?
+                  AND (title LIKE ? OR excerpt LIKE ?)
+                ORDER BY published_at DESC
+                LIMIT ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$now, $like, $like, $limit]);
+        $posts = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        return (new Response())->json([
+            'data' => array_map(fn($r) => [
+                'id'       => (int) $r['id'],
+                'title'    => $r['title'],
+                'slug'     => $r['slug'],
+                'excerpt'  => mb_substr(strip_tags($r['excerpt'] ?: $r['title']), 0, 120),
+                'url'      => url('/posts/' . $r['slug']),
+                'published_at' => $r['published_at'],
+            ], $posts),
+            'query' => $q,
+        ]);
     }
 }

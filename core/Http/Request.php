@@ -23,7 +23,7 @@ class Request
         $this->server = $_SERVER;
         $this->method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
-        $this->path = '/' . trim(parse_url($uri, PHP_URL_PATH) ?? '/', '/') ?: '/';
+        $this->path = '/' . trim(rawurldecode(parse_url($uri, PHP_URL_PATH) ?? '/'), '/') ?: '/';
     }
 
     public static function capture(): static

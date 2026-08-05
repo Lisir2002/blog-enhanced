@@ -27,22 +27,87 @@
         return window.matchMedia('(max-width: 768px)').matches;
     }
 
-    function openNav() {
-        if (navDrawer) navDrawer.classList.add('is-open');
-        if (navToggle) navToggle.setAttribute('aria-expanded', 'true');
-        document.body.style.overflow = 'hidden';
-        if (searchPanel) searchPanel.classList.remove('is-open');
-        closeUserMenu();
-    }
-    function closeNav() {
-        if (navDrawer) navDrawer.classList.remove('is-open');
-        if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
-        // 仅当用户菜单也关闭时才恢复滚动
-        if (!(userMenu && userMenu.classList.contains('is-open'))) {
+    // ─── 面板状态管理：body 滚动锁定 + 系统返回键处理 ──
+    var overlayActive = false; // 是否有任何面板（弹窗/侧边栏）打开
+
+    // 更新 body 滚动锁定状态
+    function updateBodyScroll() {
+        if (overlayActive) {
+            document.body.style.overflow = 'hidden';
+        } else {
             document.body.style.overflow = '';
         }
     }
 
+    // iOS 阻止 touchmove 冒泡到 body（解决 iOS 上 overflow:hidden 无效的问题）
+    function preventTouchMove(e) {
+        if (overlayActive) {
+            // 允许 drawer 面板内部滚动
+            var panel = navDrawer && navDrawer.classList.contains('is-open') ? navPanel : null;
+            if (panel && panel.contains(e.target)) return;
+            // 允许 popover 滚动区内部滚动
+            var scrollArea = userMenu && userMenu.classList.contains('is-open')
+                ? userMenu.querySelector('.blog-popover__scroll') : null;
+            if (scrollArea && scrollArea.contains(e.target)) return;
+            e.preventDefault();
+        }
+    }
+    document.addEventListener('touchmove', preventTouchMove, { passive: false });
+
+    // 系统返回键处理：关闭面板而非页面后退
+    window.addEventListener('popstate', function () {
+        if (overlayActive) {
+            closeAllPanels();
+        }
+    });
+
+    // 打开面板时同步历史状态
+    function pushOverlayState() {
+        if (!overlayActive) {
+            overlayActive = true;
+            history.pushState({ overlay: true }, '');
+            updateBodyScroll();
+        }
+    }
+
+    // 关闭所有面板
+    function closeAllPanels() {
+        overlayActive = false;
+        if (navDrawer) {
+            navDrawer.classList.remove('is-open');
+            if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+        }
+        if (userMenu) {
+            userMenu.classList.remove('is-open');
+            if (userMenuOverlay) userMenuOverlay.classList.remove('is-open');
+            if (avatarToggle) avatarToggle.setAttribute('aria-expanded', 'false');
+        }
+        if (debugBody) debugBody.classList.remove('is-open');
+        updateBodyScroll();
+    }
+
+    // ─── 导航抽屉 ──────────────────────────────────────
+    function openNav() {
+        if (navDrawer) navDrawer.classList.add('is-open');
+        if (navToggle) navToggle.setAttribute('aria-expanded', 'true');
+        if (searchPanel) searchPanel.classList.remove('is-open');
+        if (userMenuOverlay) userMenuOverlay.classList.remove('is-open');
+        if (userMenu) userMenu.classList.remove('is-open');
+        if (avatarToggle) avatarToggle.setAttribute('aria-expanded', 'false');
+        pushOverlayState();
+    }
+    function closeNav() {
+        if (navDrawer) navDrawer.classList.remove('is-open');
+        if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
+        // 检查是否还有其他面板打开
+        var otherOpen = userMenu && userMenu.classList.contains('is-open');
+        if (!otherOpen) {
+            overlayActive = false;
+            updateBodyScroll();
+        }
+    }
+
+    // ─── 用户菜单弹窗 ──────────────────────────────────
     function toggleUserMenu() {
         if (!userMenu) return;
         var isOpen = userMenu.classList.toggle('is-open');
@@ -50,15 +115,17 @@
         if (userMenuOverlay) userMenuOverlay.classList.toggle('is-open', isOpen);
         if (isOpen) {
             if (searchPanel) searchPanel.classList.remove('is-open');
-            closeNav();
-            // 移动端锁定 body 滚动
-            if (isMobileLayout()) {
-                document.body.style.overflow = 'hidden';
+            if (navDrawer) {
+                navDrawer.classList.remove('is-open');
+                if (navToggle) navToggle.setAttribute('aria-expanded', 'false');
             }
+            pushOverlayState();
         } else {
-            // 关闭时恢复滚动（若导航未打开）
-            if (!(navDrawer && navDrawer.classList.contains('is-open'))) {
-                document.body.style.overflow = '';
+            // 检查是否还有其他面板打开
+            var otherOpen = navDrawer && navDrawer.classList.contains('is-open');
+            if (!otherOpen) {
+                overlayActive = false;
+                updateBodyScroll();
             }
         }
     }
@@ -67,9 +134,10 @@
         if (userMenuOverlay) userMenuOverlay.classList.remove('is-open');
         if (avatarToggle) avatarToggle.setAttribute('aria-expanded', 'false');
         if (debugBody) debugBody.classList.remove('is-open');
-        // 恢复滚动（若导航未打开）
-        if (!(navDrawer && navDrawer.classList.contains('is-open'))) {
-            document.body.style.overflow = '';
+        var otherOpen = navDrawer && navDrawer.classList.contains('is-open');
+        if (!otherOpen) {
+            overlayActive = false;
+            updateBodyScroll();
         }
     }
 
@@ -91,7 +159,17 @@
         if (debugBody) debugBody.classList.toggle('is-open');
     });
 
-    // 搜索
+    // ─── 实时搜索（纯客户端，零网络请求） ──────────────
+    var searchResults = document.getElementById('searchResults');
+    var searchIndexEl = document.getElementById('searchIndex');
+    var searchIndex = [];
+    try {
+        searchIndex = JSON.parse(searchIndexEl ? searchIndexEl.textContent : '[]');
+    } catch (e) {
+        searchIndex = [];
+    }
+    var searchTimer = null;
+
     if (searchToggle && searchPanel) {
         searchToggle.addEventListener('click', function () {
             var expanded = searchPanel.classList.toggle('is-open');
@@ -99,23 +177,91 @@
                 if (searchInput) searchInput.focus();
                 closeNav();
                 closeUserMenu();
+            } else {
+                if (searchResults) searchResults.classList.remove('is-active');
             }
         });
     }
     if (searchClose) {
         searchClose.addEventListener('click', function () {
             searchPanel.classList.remove('is-open');
+            if (searchResults) searchResults.classList.remove('is-active');
             if (searchToggle) searchToggle.focus();
         });
+    }
+
+    // 实时搜索：输入时客户端过滤
+    if (searchInput && searchResults) {
+        var isComposing = false;
+
+        searchInput.addEventListener('compositionstart', function () {
+            isComposing = true;
+        });
+        searchInput.addEventListener('compositionend', function () {
+            isComposing = false;
+            doSearch(this.value.trim());
+        });
+        searchInput.addEventListener('input', function () {
+            if (isComposing) return;
+            doSearch(this.value.trim());
+        });
+
+        // 点击搜索面板外部关闭结果
+        document.addEventListener('click', function (e) {
+            if (searchResults && searchResults.classList.contains('is-active')) {
+                var panel = searchPanel;
+                if (panel && !panel.contains(e.target) && e.target !== searchToggle) {
+                    searchResults.classList.remove('is-active');
+                }
+            }
+        });
+    }
+
+    function doSearch(q) {
+        clearTimeout(searchTimer);
+        if (q === '') {
+            searchResults.classList.remove('is-active');
+            return;
+        }
+        // 防抖：避免快速输入时频繁过滤
+        searchTimer = setTimeout(function () {
+            var lower = q.toLowerCase();
+            var matched = searchIndex.filter(function (post) {
+                return (post.title && post.title.toLowerCase().indexOf(lower) !== -1)
+                    || (post.excerpt && post.excerpt.toLowerCase().indexOf(lower) !== -1);
+            }).slice(0, 5);
+
+            if (matched.length === 0) {
+                searchResults.innerHTML = '<div class="blog-search__results-empty">没有找到相关文章</div>';
+            } else {
+                var html = '';
+                matched.forEach(function (post) {
+                    html += '<a href="' + post.url + '" class="blog-search__results-item">'
+                        + '<span class="blog-search__results-title">' + escapeHtml(post.title) + '</span>'
+                        + '<span class="blog-search__results-excerpt">' + escapeHtml(post.excerpt) + '</span>'
+                        + '</a>';
+                });
+                html += '<div class="blog-search__results-footer">'
+                    + '<a href="/search?q=' + encodeURIComponent(q) + '">查看全部搜索结果 →</a>'
+                    + '</div>';
+                searchResults.innerHTML = html;
+            }
+            searchResults.classList.add('is-active');
+        }, 150);
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str || ''));
+        return div.innerHTML;
     }
 
     // 桌面端：点击外部关闭气泡菜单
     document.addEventListener('click', function (e) {
         if (userMenu && userMenu.classList.contains('is-open') && !isMobileLayout()) {
             var wrap = document.querySelector('.blog-header__avatar-wrap');
-            if (wrap && !wrap.contains(e.target)) {
-                closeUserMenu();
-            }
+            if ((wrap && wrap.contains(e.target)) || userMenu.contains(e.target)) return;
+            closeUserMenu();
         }
     });
 
@@ -154,7 +300,8 @@
     // ─── 主题切换（深色/浅色） ──────────────────────────
     var themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
-        themeToggle.addEventListener('click', function () {
+        themeToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
             var html = document.documentElement;
             var current = html.getAttribute('data-theme');
             var next;

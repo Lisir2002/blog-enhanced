@@ -27,14 +27,14 @@ $currentPage = app(\Core\Http\Request::class)->path();
                 <div class="brand-icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 </div>
-                <a href="<?= route('admin') ?>"><?= e($siteName) ?></a>
+                <a href="<?= route('admin.dashboard') ?>"><?= e($siteName) ?></a>
             </div>
         </div>
 
         <nav class="sidebar-nav">
             <div class="nav-section-label">管理</div>
             <?php if (can('read') || can('dashboard')): ?>
-            <a href="<?= route('admin') ?>" class="nav-item <?= $currentPage === '/admin' ? 'active' : '' ?>">
+            <a href="<?= route('admin.dashboard') ?>" class="nav-item <?= $currentPage === '/admin' ? 'active' : '' ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 仪表盘
             </a>
@@ -102,7 +102,7 @@ $currentPage = app(\Core\Http\Request::class)->path();
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 查看站点
             </a>
-            <a href="<?= route('logout') ?>" class="nav-item">
+            <a href="<?= route('admin.logout') ?>" class="nav-item">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 退出
             </a>
@@ -149,7 +149,7 @@ $currentPage = app(\Core\Http\Request::class)->path();
     </main>
 </div>
 
-<script src="<?= asset('admin/admin.js') ?>"></script>
+<script src="<?= asset('admin/admin.js') ?>?v=<?= time() ?>"></script>
 <?php do_action('admin_footer') ?>
 </body>
 </html>

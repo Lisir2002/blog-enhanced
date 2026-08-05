@@ -47,7 +47,7 @@ class Connection
                     $this->pdo = new \PDO('sqlite::memory:', null, null, [
                         \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                         \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                        \PDO::ATTR_EMULATE_PREPARES => false,
+                        \PDO::ATTR_EMULATE_PREPARES => true,
                     ]);
                 } else {
                     // If path is absolute, use as-is; otherwise resolve under database/
@@ -66,7 +66,7 @@ class Connection
                     $this->pdo = new \PDO("sqlite:$path", null, null, [
                         \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                         \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                        \PDO::ATTR_EMULATE_PREPARES => false,
+                        \PDO::ATTR_EMULATE_PREPARES => true,
                     ]);
                 }
                 // Foreign keys on
@@ -74,6 +74,7 @@ class Connection
                 // Performance for SQLite (WAL 不支持 :memory:，会自动忽略)
                 $this->pdo->exec('PRAGMA journal_mode = WAL;');
                 $this->pdo->exec('PRAGMA synchronous = NORMAL;');
+                $this->pdo->exec('PRAGMA busy_timeout = 5000;');
             } else {
                 $host = config('database.host', '127.0.0.1');
                 $port = config('database.port', 3306);

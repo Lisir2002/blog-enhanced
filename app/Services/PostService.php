@@ -110,7 +110,8 @@ class PostService
     }
 
     /**
-     * 删除文章 + 清理标签关联。
+     * 软删除文章 → 移入回收站。
+     * 实际只是设置 deleted_at 时间戳，数据保留在数据库。
      */
     public function delete(int $id): bool
     {
@@ -119,10 +120,40 @@ class PostService
             return false;
         }
 
+        $post->delete(); // 软删除（设置 deleted_at）
+        $this->clearNavCache();
+        return true;
+    }
+
+    /**
+     * 从回收站恢复文章。
+     */
+    public function restore(int $id): bool
+    {
+        $post = Post::withTrashed()->where('id', '=', $id)->first();
+        if (!$post) {
+            return false;
+        }
+
+        $post->restore();
+        $this->clearNavCache();
+        return true;
+    }
+
+    /**
+     * 永久删除文章（彻底从数据库移除）。
+     */
+    public function forceDelete(int $id): bool
+    {
+        $post = Post::withTrashed()->where('id', '=', $id)->first();
+        if (!$post) {
+            return false;
+        }
+
         $pdo = $this->connection->pdo();
         try {
             $pdo->beginTransaction();
-            $post->delete();
+            $post->forceDelete();
             app(QueryBuilder::class)
                 ->table('post_tag')
                 ->where('post_id', '=', $id)

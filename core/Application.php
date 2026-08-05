@@ -104,6 +104,16 @@ class Application extends Container
 
     private function handleException(\Throwable $e): Response
     {
+        // 记录异常日志到文件（用于调试）
+        @file_put_contents('/tmp/php_error.log', sprintf(
+            "[%s] %s in %s:%d\n%s\n---\n",
+            date('Y-m-d H:i:s'),
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine(),
+            $e->getTraceAsString()
+        ), FILE_APPEND);
+
         // 记录异常日志
         try {
             \Core\Log\Log::error($e->getMessage(), [
@@ -114,8 +124,24 @@ class Application extends Container
             // 日志本身失败时不影响响应
         }
 
+        // 检查请求是否期望 JSON 响应
+        $expectsJson = false;
+        try {
+            $req = $this->get(Request::class);
+            $expectsJson = $req->expectsJson();
+        } catch (\Throwable) {
+            // Request 还没准备好，用 Accept 头判断
+            $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+            $expectsJson = str_contains($accept, 'application/json');
+        }
+
         // 开发环境：显示完整错误信息
         if (config('app.debug')) {
+            if ($expectsJson) {
+                return (new Response())
+                    ->json(['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()])
+                    ->setStatus(500);
+            }
             $resp = (new Response())
                 ->setContentType('text/html')
                 ->setStatus(500);
@@ -123,14 +149,17 @@ class Application extends Container
                 '<h1>Server Error</h1><pre>%s</pre><pre>%s:%d</pre><pre>%s</pre>',
                 e($e->getMessage()),
                 e($e->getFile()),
-                $e->getCode(),
-                e($e->getFile()),
                 $e->getLine(),
                 e($e->getTraceAsString())
             ));
             return $resp;
         }
         // 生产环境不泄露细节，只显示通用错误页
+        if ($expectsJson) {
+            return (new Response())
+                ->json(['error' => '内部服务器错误'])
+                ->setStatus(500);
+        }
         try {
             $theme = $this->get(\Core\View\ThemeManager::class);
             if ($theme->templateExists('error')) {

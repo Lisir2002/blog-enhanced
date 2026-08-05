@@ -52,7 +52,7 @@ class Router
      *       $router->get('/posts', [PostController::class, 'index']);
      *   });
      */
-    public function group(array $attributes, Closure $callback): static
+    public function group(array $attributes, \Closure $callback): static
     {
         $prefix = $attributes['prefix'] ?? '';
         $middleware = isset($attributes['middleware'])
@@ -426,5 +426,39 @@ class Router
         // Strip remaining optional / unset placeholders
         $url = preg_replace('/\{[a-zA-Z_]\w*(?::[^}]+)?\}/', '', $url);
         return url(trim($url, '/'));
+    }
+
+    /**
+     * 检查路由是否已注册。
+     */
+    public function hasRoute(string $name): bool
+    {
+        return isset($this->namedRoutes[$name]);
+    }
+
+    /**
+     * 获取所有已注册路由的名称列表。
+     *
+     * @return array<int, string>
+     */
+    public function getRouteNames(): array
+    {
+        return array_keys($this->namedRoutes);
+    }
+
+    /**
+     * 获取所有已注册路由的完整信息。
+     *
+     * @return array<int, array{method: string, pattern: string, name: ?string}>
+     */
+    public function getRoutes(): array
+    {
+        return array_map(function (array $r) {
+            return [
+                'method'  => $r['method'],
+                'pattern' => $r['pattern'],
+                'name'    => $r['name'] ?? null,
+            ];
+        }, $this->routes);
     }
 }

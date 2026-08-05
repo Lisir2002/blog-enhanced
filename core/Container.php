@@ -297,7 +297,6 @@ class Container
             $ref = new ReflectionClass(Application::class);
             if ($ref->hasProperty('instance')) {
                 $prop = $ref->getProperty('instance');
-                $prop->setAccessible(true);
                 $prop->setValue(null, null);
             }
         }

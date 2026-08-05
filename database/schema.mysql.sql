@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS posts (
     published_at    DATETIME,
     seo_title       VARCHAR(255),
     seo_description TEXT,
+    deleted_at      DATETIME,
     created_at      DATETIME NOT NULL,
     updated_at      DATETIME NOT NULL,
     INDEX idx_posts_slug        (slug),

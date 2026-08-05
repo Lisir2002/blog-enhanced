@@ -157,9 +157,13 @@ class DeepEnhancementTest extends TestCase
 
         DebugBar::reset();
         DebugBar::logQuery('SELECT 1', 0.5);
-        $html = DebugBar::render();
-        $this->assertStringContainsString('Query Log', $html);
-        $this->assertStringContainsString('SELECT 1', $html);
+        // render() now returns empty; debug data is accessed via summary()
+        $summary = DebugBar::summary();
+        $this->assertTrue($summary['enabled']);
+        $this->assertCount(1, $summary['queries']);
+        $this->assertSame('SELECT 1', $summary['queries'][0]['sql']);
+        // ms is stored as milliseconds (0.5s = 500ms)
+        $this->assertSame(500.0, $summary['queries'][0]['ms']);
 
         putenv('APP_DEBUG=false');
         $config->set('app.debug', false);

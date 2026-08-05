@@ -272,7 +272,9 @@ abstract class Model
             return false;
         }
         $pk = static::$primaryKey;
-        $result = static::query()
+        // 必须使用 withTrashed() 绕过 deleted_at IS NULL 过滤，
+        // 因为待恢复的记录的 deleted_at 不为 NULL
+        $result = static::withTrashed()
             ->where($pk, '=', $this->attributes[$pk])
             ->update(['deleted_at' => null]) > 0;
         if ($result) {
@@ -290,28 +292,32 @@ abstract class Model
         if (empty($this->attributes[$pk])) {
             return false;
         }
-        return static::query()
+        // 使用 withTrashed() 确保软删除的记录也能被物理删除
+        return static::withTrashed()
             ->where($pk, '=', $this->attributes[$pk])
             ->delete() > 0;
     }
 
     /**
      * 查询时排除软删除的记录（默认行为）。
+     * NOTE: 此方法接收克隆后的 Qb，修改后不需返回。
+     *       但为了安全，仍返回 Qb 供链式调用。
      */
-    protected static function applySoftDeleteScope(QueryBuilder $qb): void
+    protected static function applySoftDeleteScope(QueryBuilder $qb): QueryBuilder
     {
         if (static::$softDelete) {
-            $qb->whereNull('deleted_at');
+            return $qb->whereNull('deleted_at');
         }
+        return $qb;
     }
 
     /**
-     * 包含已软删除的记录。
+     * 包含已软删除的记录（不应用 deleted_at IS NULL 过滤）。
      */
     public static function withTrashed(): QueryBuilder
     {
-        $qb = static::query();
-        // 不应用软删除作用域
+        $qb = app(QueryBuilder::class)->table(static::$table);
+        static::applyGlobalScopes($qb);
         return $qb;
     }
 
@@ -322,7 +328,7 @@ abstract class Model
     {
         $qb = app(QueryBuilder::class)->table(static::$table);
         if (static::$softDelete) {
-            $qb->whereNotNull('deleted_at');
+            $qb = $qb->whereNotNull('deleted_at');
         }
         return $qb;
     }
@@ -365,8 +371,9 @@ abstract class Model
     {
         $qb = app(QueryBuilder::class)->table(static::$table);
         // 应用软删除作用域
+        // NOTE: where/whereNull 返回克隆对象，必须重新赋值
         if (static::$softDelete) {
-            $qb->whereNull('deleted_at');
+            $qb = $qb->whereNull('deleted_at');
         }
         // 应用全局作用域
         static::applyGlobalScopes($qb);

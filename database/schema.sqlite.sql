@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS posts (
     seo_title       TEXT,
     seo_description TEXT,
     featured_image_id INTEGER,
+    deleted_at      TEXT,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL,
     FOREIGN KEY (author_id)   REFERENCES users(id) ON DELETE SET NULL,

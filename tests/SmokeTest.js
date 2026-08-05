@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE = '/home/z/my-project/blog';
+const BASE = '/workspace/blog-enhanced';
 const results = [];
 let passCount = 0, failCount = 0;
 
