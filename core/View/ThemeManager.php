@@ -419,10 +419,52 @@ class ThemeManager
         return $this->configManager->getDemoUrl();
     }
 
+    /** @see ThemeConfigManager::getGroupedOptions() */
+    public function getGroupedOptions(): array
+    {
+        return $this->configManager->getGroupedOptions();
+    }
+
+    /** @see ThemeConfigManager::getFlatOptions() */
+    public function getFlatOptions(): array
+    {
+        return $this->configManager->getFlatOptions();
+    }
+
     /** @see ThemeConfigManager::generateCssVariables() */
     public function generateCssVariables(): string
     {
         return $this->configManager->generateCssVariables();
+    }
+
+    /** @see ThemeConfigManager::generateFullCssVariables() */
+    public function generateFullCssVariables(): string
+    {
+        return $this->configManager->generateFullCssVariables();
+    }
+
+    /** @see ThemeConfigManager::createSnapshot() */
+    public function createSnapshot(string $note = ''): int
+    {
+        return $this->configManager->createSnapshot($note);
+    }
+
+    /** @see ThemeConfigManager::getSnapshots() */
+    public function getSnapshots(int $limit = 50): array
+    {
+        return $this->configManager->getSnapshots($limit);
+    }
+
+    /** @see ThemeConfigManager::getSnapshot() */
+    public function getSnapshot(int $id): ?array
+    {
+        return $this->configManager->getSnapshot($id);
+    }
+
+    /** @see ThemeConfigManager::restoreSnapshot() */
+    public function restoreSnapshot(int $id): void
+    {
+        $this->configManager->restoreSnapshot($id);
     }
 
     /* ═══════════════ 简单属性访问 ═══════════════ */
@@ -529,16 +571,27 @@ class ThemeManager
      */
     private function outputCssVariables(): void
     {
-        $cssVars = $this->configManager->generateCssVariables();
+        $cssVars = $this->configManager->generateFullCssVariables();
         $customCss = $this->configManager->getOption('custom_css', '');
+        $customJsHead = $this->configManager->getOption('custom_js_head', '');
+        $customJsFooter = $this->configManager->getOption('custom_js_footer', '');
 
-        add_action('wp_head', function () use ($cssVars, $customCss) {
+        add_action('wp_head', function () use ($cssVars, $customCss, $customJsHead) {
             if ($cssVars) {
                 echo "<style id=\"theme-css-vars\">\n{$cssVars}</style>\n";
             }
             if ($customCss) {
                 echo "<style id=\"theme-custom-css\">\n{$customCss}\n</style>\n";
             }
+            if ($customJsHead) {
+                echo "<script id=\"theme-custom-js-head\">\n{$customJsHead}\n</script>\n";
+            }
         }, 1);
+
+        if ($customJsFooter) {
+            add_action('wp_footer', function () use ($customJsFooter) {
+                echo "<script id=\"theme-custom-js-footer\">\n{$customJsFooter}\n</script>\n";
+            }, 100);
+        }
     }
 }

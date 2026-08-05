@@ -1,7 +1,7 @@
 {
     "name": "Default",
-    "version": "1.0.0",
-    "description": "默认主题 - 简洁现代风，性能优先",
+    "version": "2.0.0",
+    "description": "默认主题 - 简洁现代风，性能优先，支持丰富的定制选项",
     "author": "Blog CMS",
     "homepage": "https://example.com",
     "demo_url": "https://example.com/demo",
@@ -12,10 +12,7 @@
     "requires_php": ">=8.1",
     "parent": null,
     "category": "blog",
-    "tags": ["minimal", "responsive", "clean"],
-    "changelog": {
-        "1.0.0": "初始版本发布"
-    },
+    "tags": ["minimal", "responsive", "clean", "customizable"],
 
     "menus": {
         "primary": "主导航",
@@ -42,36 +39,310 @@
         "landing": "落地页"
     },
 
-    "options": {
-        "accent_color": {
-            "type": "color",
-            "label": "主题色",
-            "default": "#3b82f6",
-            "description": "设置网站的主色调"
-        },
-        "layout": {
-            "type": "select",
-            "label": "布局",
-            "default": "sidebar-right",
-            "description": "选择页面布局方式",
-            "choices": {
-                "sidebar-right": "右侧边栏",
-                "sidebar-left": "左侧边栏",
-                "full-width": "全宽"
+    "options": [
+        {
+            "section": "颜色与主题",
+            "description": "控制网站的配色方案，支持浅色/深色独立配置",
+            "fields": {
+                "accent_color": {
+                    "type": "color",
+                    "label": "主题色",
+                    "default": "#3b82f6",
+                    "dark_default": "#60a5fa",
+                    "description": "设置网站的主色调（链接、按钮、强调元素）",
+                    "css_var": "--c-primary",
+                    "category": "color"
+                },
+                "accent_color_dark": {
+                    "type": "color",
+                    "label": "主题色（深色模式）",
+                    "default": "#60a5fa",
+                    "description": "深色模式下覆盖主色调",
+                    "css_var": "--c-primary-dark-mode",
+                    "category": "color",
+                    "show_if": {"theme_mode": "dark"}
+                },
+                "bg_color": {
+                    "type": "color",
+                    "label": "背景色",
+                    "default": "#ffffff",
+                    "dark_default": "#0b1220",
+                    "description": "页面主背景色",
+                    "css_var": "--c-bg",
+                    "category": "color"
+                },
+                "text_color": {
+                    "type": "color",
+                    "label": "正文颜色",
+                    "default": "#0f172a",
+                    "dark_default": "#e2e8f0",
+                    "description": "正文文字颜色",
+                    "css_var": "--c-text",
+                    "category": "color"
+                },
+                "card_bg": {
+                    "type": "color",
+                    "label": "卡片背景色",
+                    "default": "#ffffff",
+                    "dark_default": "#111827",
+                    "description": "卡片/区块背景色",
+                    "css_var": "--c-bg-card",
+                    "category": "color"
+                },
+                "border_color": {
+                    "type": "color",
+                    "label": "边框颜色",
+                    "default": "#e2e8f0",
+                    "dark_default": "#1f2937",
+                    "description": "分割线和边框颜色",
+                    "css_var": "--c-border",
+                    "category": "color"
+                }
             }
         },
-        "custom_css": {
-            "type": "textarea",
-            "label": "自定义 CSS",
-            "description": "输入自定义 CSS 代码"
+        {
+            "section": "排版与字体",
+            "description": "控制网站的文字样式和排版参数",
+            "fields": {
+                "font_size_base": {
+                    "type": "range",
+                    "label": "正文字号",
+                    "default": 15,
+                    "min": 12,
+                    "max": 24,
+                    "step": 1,
+                    "unit": "px",
+                    "description": "正文的基础字号",
+                    "css_var": "--font-size-base"
+                },
+                "font_family": {
+                    "type": "select",
+                    "label": "字体族",
+                    "default": "system",
+                    "description": "选择网站使用的字体",
+                    "choices": {
+                        "system": "系统默认字体",
+                        "serif": "衬线体 (Noto Serif SC)",
+                        "rounded": "圆体 (Noto Sans SC)",
+                        "mono": "等宽体 (JetBrains Mono)"
+                    },
+                    "css_var": "--font-family-mode"
+                },
+                "content_width": {
+                    "type": "range",
+                    "label": "内容区宽度",
+                    "default": 1200,
+                    "min": 800,
+                    "max": 1600,
+                    "step": 20,
+                    "unit": "px",
+                    "description": "文章内容区域的最大宽度",
+                    "css_var": "--max-width"
+                },
+                "border_radius": {
+                    "type": "range",
+                    "label": "圆角大小",
+                    "default": 12,
+                    "min": 0,
+                    "max": 32,
+                    "step": 2,
+                    "unit": "px",
+                    "description": "卡片的圆角半径",
+                    "css_var": "--radius"
+                }
+            }
+        },
+        {
+            "section": "布局与侧边栏",
+            "description": "控制页面布局结构和侧边栏行为",
+            "fields": {
+                "layout": {
+                    "type": "select",
+                    "label": "页面布局",
+                    "default": "sidebar-right",
+                    "description": "选择默认的页面布局方式",
+                    "choices": {
+                        "sidebar-right": "右侧边栏",
+                        "sidebar-left": "左侧边栏",
+                        "full-width": "全宽（无侧边栏）"
+                    },
+                    "css_var": "--layout-mode"
+                },
+                "sticky_sidebar": {
+                    "type": "switch",
+                    "label": "固定侧边栏",
+                    "default": true,
+                    "description": "侧边栏是否随页面滚动固定"
+                },
+                "show_sidebar_on_mobile": {
+                    "type": "switch",
+                    "label": "移动端显示侧边栏",
+                    "default": false,
+                    "description": "在手机端是否显示侧边栏"
+                }
+            }
+        },
+        {
+            "section": "头部与品牌",
+            "description": "配置网站头部、Logo 和品牌信息",
+            "fields": {
+                "logo": {
+                    "type": "image",
+                    "label": "Logo 图片",
+                    "default": "",
+                    "description": "上传网站 Logo（推荐 200x60px，支持 PNG/SVG）"
+                },
+                "logo_height": {
+                    "type": "range",
+                    "label": "Logo 高度",
+                    "default": 40,
+                    "min": 24,
+                    "max": 80,
+                    "step": 2,
+                    "unit": "px",
+                    "description": "Logo 图片的显示高度"
+                },
+                "show_site_name": {
+                    "type": "switch",
+                    "label": "显示站点名称",
+                    "default": true,
+                    "description": "在头部显示站点名称"
+                },
+                "header_layout": {
+                    "type": "select",
+                    "label": "头部布局",
+                    "default": "classic",
+                    "description": "选择头部导航栏的布局样式",
+                    "choices": {
+                        "classic": "经典布局",
+                        "centered": "居中布局",
+                        "transparent": "透明头部"
+                    }
+                }
+            }
+        },
+        {
+            "section": "页脚与版权",
+            "description": "配置页脚信息和版权声明",
+            "fields": {
+                "footer_text": {
+                    "type": "text",
+                    "label": "页脚版权信息",
+                    "default": "© 2026 Blog CMS. All rights reserved.",
+                    "description": "显示在页脚底部的版权声明"
+                },
+                "show_footer_widgets": {
+                    "type": "switch",
+                    "label": "显示页脚 Widget 区",
+                    "default": true,
+                    "description": "是否在页脚显示 Widget 区域"
+                },
+                "footer_columns": {
+                    "type": "range",
+                    "label": "页脚列数",
+                    "default": 3,
+                    "min": 1,
+                    "max": 4,
+                    "step": 1,
+                    "unit": "",
+                    "description": "页脚 Widget 区域的列数"
+                }
+            }
+        },
+        {
+            "section": "文章与列表",
+            "description": "控制文章列表页和详情页的显示行为",
+            "fields": {
+                "excerpt_length": {
+                    "type": "range",
+                    "label": "摘要长度",
+                    "default": 120,
+                    "min": 50,
+                    "max": 500,
+                    "step": 10,
+                    "unit": "字",
+                    "description": "文章列表摘要的最大字符数"
+                },
+                "show_author": {
+                    "type": "switch",
+                    "label": "显示作者信息",
+                    "default": true,
+                    "description": "在文章卡片中显示作者信息"
+                },
+                "show_date": {
+                    "type": "switch",
+                    "label": "显示发布日期",
+                    "default": true,
+                    "description": "在文章卡片中显示发布日期"
+                },
+                "show_reading_time": {
+                    "type": "switch",
+                    "label": "显示阅读时间",
+                    "default": true,
+                    "description": "在文章卡片中显示预计阅读时间"
+                },
+                "list_style": {
+                    "type": "select",
+                    "label": "列表样式",
+                    "default": "card",
+                    "description": "文章列表的展示样式",
+                    "choices": {
+                        "card": "卡片式",
+                        "list": "列表式",
+                        "compact": "紧凑式"
+                    }
+                },
+                "featured_image_style": {
+                    "type": "select",
+                    "label": "特色图样式",
+                    "default": "landscape",
+                    "description": "文章特色图的显示比例",
+                    "choices": {
+                        "landscape": "横版 (16:9)",
+                        "portrait": "竖版 (3:4)",
+                        "square": "正方形 (1:1)",
+                        "none": "不显示"
+                    }
+                }
+            }
+        },
+        {
+            "section": "自定义代码",
+            "description": "注入自定义 CSS/JS 代码",
+            "fields": {
+                "custom_css": {
+                    "type": "code",
+                    "label": "自定义 CSS",
+                    "default": "",
+                    "description": "输入自定义 CSS 代码，将注入到页面头部",
+                    "language": "css",
+                    "mode": "css"
+                },
+                "custom_js_head": {
+                    "type": "code",
+                    "label": "头部 JS",
+                    "default": "",
+                    "description": "注入到 <head> 标签中的 JavaScript 代码",
+                    "language": "javascript",
+                    "mode": "javascript"
+                },
+                "custom_js_footer": {
+                    "type": "code",
+                    "label": "页脚 JS",
+                    "default": "",
+                    "description": "注入到页脚 </body> 前的 JavaScript 代码",
+                    "language": "javascript",
+                    "mode": "javascript"
+                }
+            }
         }
-    },
+    ],
 
     "styles": {
         "style": {
             "src": "assets/css/style.css",
             "deps": [],
-            "ver": "1.0.0"
+            "ver": "2.0.0"
         }
     },
 

@@ -7,6 +7,7 @@ use App\Models\Option;
 use Core\Http\Response;
 use Core\Http\Request;
 use Core\Http\Session;
+use Core\Http\JsonResponse;
 
 class ThemeController
 {
@@ -95,14 +96,16 @@ class ThemeController
             return redirect(route('admin.themes.index'));
         }
 
-        $options = $plugin['meta']['options'] ?? [];
+        $groupedOptions = $theme->getGroupedOptions();
         $configValues = $theme->getAllConfig();
+        $snapshots = $theme->getSnapshots(10);
 
         return view('admin.themes.customize', [
-            'theme'        => $plugin,
-            'options'      => $options,
-            'configValues' => $configValues,
-            'pageTitle'    => '主题定制 - ' . ($plugin['meta']['name'] ?? $name),
+            'theme'          => $plugin,
+            'groupedOptions' => $groupedOptions,
+            'configValues'   => $configValues,
+            'snapshots'      => $snapshots,
+            'pageTitle'      => '主题定制 - ' . ($plugin['meta']['name'] ?? $name),
         ]);
     }
 
@@ -159,7 +162,7 @@ class ThemeController
     }
 
     /**
-     * 保存主题定制配置。
+     * 保存主题定制配置（自动创建快照）。
      */
     public function saveConfig(array $params): Response
     {
@@ -172,6 +175,13 @@ class ThemeController
         $options = $request->input('options', []);
 
         try {
+            // 保存前创建快照（自动备份）
+            try {
+                $theme->createSnapshot('保存配置前自动备份');
+            } catch (\Throwable) {
+                // 快照非关键，继续执行
+            }
+
             foreach ($options as $key => $value) {
                 $theme->setConfig($key, $value);
             }
@@ -201,6 +211,102 @@ class ThemeController
         app(Session::class)->set('theme_preview', $name);
         app(Session::class)->flash('info', "正在预览主题 [$name]");
 
+        return redirect(url('/'));
+    }
+
+    /**
+     * 查看配置历史快照列表。
+     */
+    public function revisions(array $params): Response
+    {
+        can_or_403('switch_themes');
+        $name = $params['name'] ?? '';
+        $theme = app(ThemeManager::class);
+
+        $themes = $theme->listThemes();
+        $plugin = $themes[$name] ?? null;
+        if ($plugin === null) {
+            app(Session::class)->flash('error', "主题 [$name] 不存在");
+            return redirect(route('admin.themes.index'));
+        }
+
+        $snapshots = $theme->getSnapshots(100);
+
+        return view('admin.themes.revisions', [
+            'theme'     => $plugin,
+            'snapshots' => $snapshots,
+            'pageTitle' => '配置历史 - ' . ($plugin['meta']['name'] ?? $name),
+        ]);
+    }
+
+    /**
+     * 手动创建配置快照。
+     */
+    public function createRevision(array $params): Response
+    {
+        can_or_403('switch_themes');
+        $name = $params['name'] ?? '';
+        $request = app(Request::class);
+        $sess = app(Session::class);
+        $theme = app(ThemeManager::class);
+
+        $note = trim($request->input('note', ''));
+        try {
+            $id = $theme->createSnapshot($note ?: '手动保存');
+            $sess->flash('success', "配置快照 #{$id} 已创建");
+        } catch (\Throwable $e) {
+            $sess->flash('error', '创建快照失败: ' . $e->getMessage());
+        }
+
+        return redirect(route('admin.themes.revisions', ['name' => $name]));
+    }
+
+    /**
+     * 回滚到指定配置快照。
+     */
+    public function restoreRevision(array $params): Response
+    {
+        can_or_403('switch_themes');
+        $name = $params['name'] ?? '';
+        $id = (int) ($params['id'] ?? 0);
+        $sess = app(Session::class);
+        $theme = app(ThemeManager::class);
+
+        try {
+            $theme->restoreSnapshot($id);
+            $sess->flash('success', "已回滚到快照 #{$id}");
+        } catch (\Throwable $e) {
+            $sess->flash('error', '回滚失败: ' . $e->getMessage());
+        }
+
+        return redirect(route('admin.themes.customize', ['name' => $name]));
+    }
+
+    /**
+     * AJAX 预览 — 接受临时配置参数并返回渲染后的首页 HTML。
+     * 用于实时预览定制器 iframe 加载。
+     */
+    public function previewAjax(array $params): Response
+    {
+        can_or_403('switch_themes');
+        $name = $params['name'] ?? '';
+        $theme = app(ThemeManager::class);
+
+        if (!$theme->exists($name)) {
+            return new \Core\Http\JsonResponse(['error' => '主题不存在'], 404);
+        }
+
+        // 从 GET 参数读取临时配置
+        $tempConfig = $_GET['config'] ?? [];
+        if (is_string($tempConfig)) {
+            $tempConfig = json_decode($tempConfig, true) ?? [];
+        }
+
+        // 将临时配置存入 session，前端渲染时读取
+        app(Session::class)->set('theme_preview_config_' . $name, $tempConfig);
+        app(Session::class)->set('theme_preview', $name);
+
+        // 重定向到首页以获取完整渲染
         return redirect(url('/'));
     }
 }

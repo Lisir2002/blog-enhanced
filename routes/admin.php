@@ -86,6 +86,13 @@ $router->group(['prefix' => '/admin'], function (Router $router) {
     $router->post($prefix . '/themes/{name}/config', [ThemeController::class, 'saveConfig'])->name('admin.themes.config')->middleware(['admin', 'csrf']);
     $router->get($prefix . '/themes/{name}/preview', [ThemeController::class, 'preview'])->name('admin.themes.preview')->middleware(['admin']);
 
+    // Theme Config Revisions
+    $router->get($prefix . '/themes/{name}/revisions', [ThemeController::class, 'revisions'])->name('admin.themes.revisions')->middleware(['admin']);
+    $router->post($prefix . '/themes/{name}/revisions/create', [ThemeController::class, 'createRevision'])->name('admin.themes.revisions.create')->middleware(['admin', 'csrf']);
+    $router->post($prefix . '/themes/{name}/revisions/{id}/restore', [ThemeController::class, 'restoreRevision'])->name('admin.themes.revisions.restore')->middleware(['admin', 'csrf']);
+    // Theme Preview Ajax (for live preview)
+    $router->get($prefix . '/themes/{name}/preview-ajax', [ThemeController::class, 'previewAjax'])->name('admin.themes.preview-ajax')->middleware(['admin']);
+
     // Plugins
     $router->get($prefix . '/plugins', [PluginController::class, 'index'])->name('admin.plugins.index')->middleware(['admin']);
     $router->get($prefix . '/plugins/{name}', [PluginController::class, 'detail'])->name('admin.plugins.detail')->middleware(['admin']);

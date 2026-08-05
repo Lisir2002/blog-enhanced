@@ -464,9 +464,21 @@ class ThemeDeepEnhancementTest extends TestCase
             'theme.json' => json_encode([
                 'name' => 'Test',
                 'options' => [
-                    'accent_color' => ['type' => 'color', 'default' => '#3b82f6'],
-                    'bg_color' => ['type' => 'color', 'default' => '#ffffff'],
-                    'layout' => ['type' => 'select', 'default' => 'full-width'],
+                    'accent_color' => [
+                        'type' => 'color',
+                        'default' => '#3b82f6',
+                        'css_var' => '--theme-accent-color',
+                    ],
+                    'bg_color' => [
+                        'type' => 'color',
+                        'default' => '#ffffff',
+                        'css_var' => '--theme-bg-color',
+                    ],
+                    'layout' => [
+                        'type' => 'select',
+                        'default' => 'full-width',
+                        'css_var' => '--theme-layout',
+                    ],
                 ],
             ]),
         ]);
@@ -475,7 +487,7 @@ class ThemeDeepEnhancementTest extends TestCase
         $cssVars = $cm->generateCssVariables();
         $this->assertStringContainsString('--theme-accent-color', $cssVars);
         $this->assertStringContainsString('--theme-bg-color', $cssVars);
-        $this->assertStringNotContainsString('--theme-layout', $cssVars); // select type, not color
+        $this->assertStringContainsString('--theme-layout', $cssVars);
     }
 
     public function test_config_manager_get_declared_styles_and_scripts(): void
