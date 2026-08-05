@@ -2470,8 +2470,20 @@ th.sortable .sort-arrow svg {
   }
 }
 
-@media (max-width: 480px) {
-  .media-grid {
-    grid-template-columns: 1fr;
-  }
+/* ---------- Missing utility classes ---------- */
+
+/* 批量操作表单：默认隐藏，JS 选中项目后显示 */
+.batch-form {
+  display: none;
+}
+
+/* 表格全选 / 单选复选框（JS 选择器钩子，保持原生样式） */
+.check-all,
+.check-item {
+  cursor: pointer;
+}
+
+/* 筛选 Tab 的「默认项」视觉标识（在 .active 之外额外的温和强调） */
+.filter-tab.is-default {
+  font-weight: 600;
 }

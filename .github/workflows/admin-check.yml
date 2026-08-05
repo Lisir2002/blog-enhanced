@@ -36,14 +36,30 @@ jobs:
 
       - name: 检查模板 CSS 类是否已定义
         run: |
+          # 更健壮的提取逻辑：先提取 class="..." 引号内内容，
+          # 清理 PHP <?= ?> 和 JS 字符串拼接 ' + var + ' 的动态片段，
+          # 再按空格拆词，只保留字母开头、由字母数字下划线连字符组成的纯 CSS 类名，
+          # 最后去掉以 - 结尾的不完整残尾（如 badge- 残留）
+          TMP_CLASSES=$(mktemp)
+          grep -roh 'class="[^"]*"' resources/views/admin/ 2>/dev/null \
+            | sed 's/^class="//;s/"$//' \
+            | sed 's/<?=[^?]*?>//g' \
+            | sed "s/'\s*+\s*[^+]*\s*+\s*'//g" \
+            | tr ' ' '\n' \
+            | grep -E '^[a-zA-Z][a-zA-Z0-9_-]*$' \
+            | sed '/-$/d' \
+            | sort -u > "$TMP_CLASSES"
+
           MISSING=0
-          while read cls; do
-            name=$(echo "$cls" | sed 's/\.//')
-            if ! grep -q "\.$name" public/assets/admin/admin.css 2>/dev/null; then
+          while read -r name; do
+            [ -z "$name" ] && continue
+            if ! grep -Eq "\.${name}([[:space:],.{]|$)" public/assets/admin/admin.css 2>/dev/null; then
               echo "⚠️  类 '$name' 在模板中使用但未在 admin.css 中定义"
               MISSING=1
             fi
-          done < <(grep -roh 'class="[^"]*"' resources/views/admin/ 2>/dev/null | grep -oE '\.[a-zA-Z0-9_-]+' | sort -u)
+          done < "$TMP_CLASSES"
+          rm -f "$TMP_CLASSES"
+
           if [ "$MISSING" -eq 1 ]; then
             exit 1
           fi
