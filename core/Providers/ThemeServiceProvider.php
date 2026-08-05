@@ -7,6 +7,9 @@ use Core\View\MenuManager;
 use Core\View\Shortcode;
 use Core\View\ThemeManager;
 use Core\View\WidgetManager;
+use Core\Theme\ThemeInstaller;
+use Core\Theme\TemplateResolver;
+use Core\Theme\ThemeConfigManager;
 
 class ThemeServiceProvider extends Provider
 {
@@ -18,6 +21,11 @@ class ThemeServiceProvider extends Provider
         $this->app->singleton(MenuManager::class);
         $this->app->singleton(AssetManager::class);
         $this->app->singleton(Shortcode::class);
+
+        // Register new theme sub-components
+        $this->app->singleton(ThemeInstaller::class, fn () => new ThemeInstaller(themes_path()));
+        $this->app->singleton(TemplateResolver::class, fn () => new TemplateResolver(themes_path()));
+        $this->app->singleton(ThemeConfigManager::class, fn () => new ThemeConfigManager(themes_path()));
     }
 
     public function boot(): void

@@ -92,6 +92,11 @@ class Response
         return $this->status;
     }
 
+    public function getStatus(): int
+    {
+        return $this->status;
+    }
+
     /**
      * @return array<string, string>
      */

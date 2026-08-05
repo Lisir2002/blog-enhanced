@@ -1,19 +1,44 @@
 <?php
 /** @var array $themes
  *  @var string $active
+ *  @var string $search
+ *  @var string $statusFilter
  */
 ob_start();
 
-// Separate active theme from others
+$search = $search ?? '';
+$statusFilter = $statusFilter ?? '';
+
+// 当前激活主题（用于顶部大卡片展示）
 $activeTheme = null;
-$otherThemes = [];
 foreach ($themes as $t) {
     if ($t['name'] === $active) {
         $activeTheme = $t;
-    } else {
-        $otherThemes[] = $t;
+        break;
     }
 }
+
+// 所有主题都参与列表展示（包括当前主题）
+$listThemes = $themes;
+
+// 搜索过滤
+if ($search !== '') {
+    $listThemes = array_filter($listThemes, function ($t) use ($search) {
+        return stripos($t['name'], $search) !== false ||
+            stripos($t['meta']['name'] ?? '', $search) !== false ||
+            stripos($t['meta']['description'] ?? '', $search) !== false ||
+            stripos($t['meta']['author'] ?? '', $search) !== false;
+    });
+}
+
+// 状态筛选
+if ($statusFilter === 'active') {
+    $listThemes = array_filter($listThemes, fn($t) => $t['name'] === $active);
+} elseif ($statusFilter === 'inactive') {
+    $listThemes = array_filter($listThemes, fn($t) => $t['name'] !== $active);
+}
+
+$listThemes = array_values($listThemes);
 ?>
 <div class="page-header">
     <h2>主题管理</h2>
@@ -77,6 +102,10 @@ foreach ($themes as $t) {
         <?php endif; ?>
 
         <div class="theme-featured-actions">
+            <a href="<?= route('admin.themes.detail', ['name' => $activeTheme['name']]) ?>" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+                查看详情
+            </a>
             <a href="<?= url('/') ?>" target="_blank" rel="noopener" class="btn btn-secondary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 预览站点
@@ -108,17 +137,31 @@ foreach ($themes as $t) {
     </form>
 </div>
 
-<!-- 可用主题列表 -->
+<!-- 筛选区域 -->
+<div class="admin-filter-bar">
+    <div class="admin-filter-row-top">
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="themeSearchInput" placeholder="搜索主题名称、描述、作者..." value="<?= e($search) ?>" class="form-control" autocomplete="off">
+        </div>
+    </div>
+    <div class="filter-tabs admin-filter-tabs">
+        <a href="javascript:;" class="filter-tab is-default <?= $statusFilter === '' ? 'active' : '' ?>" data-status="">全部</a>
+        <a href="javascript:;" class="filter-tab <?= $statusFilter === 'active' ? 'active' : '' ?>" data-status="active">当前主题</a>
+        <a href="javascript:;" class="filter-tab <?= $statusFilter === 'inactive' ? 'active' : '' ?>" data-status="inactive">其他主题</a>
+    </div>
+</div>
+
 <div class="theme-list-section">
     <div class="theme-list-header">
         <h3 class="section-title">可用主题</h3>
-        <span class="theme-count-badge"><?= count($otherThemes) ?> 个可用</span>
+        <span class="theme-count-badge"><?= count($listThemes) ?> 个</span>
     </div>
 
-    <?php if (!empty($otherThemes)): ?>
+    <?php if (!empty($listThemes)): ?>
     <div class="theme-grid">
-        <?php foreach ($otherThemes as $t): ?>
-            <div class="theme-card">
+        <?php foreach ($listThemes as $t): $isActiveTheme = ($t['name'] === $active); ?>
+            <div class="theme-card <?= $isActiveTheme ? 'active' : '' ?>">
                 <div class="theme-card-preview">
                     <?php if (!empty($t['meta']['screenshot'])): ?>
                         <img src="<?= url('themes/' . $t['name'] . '/' . $t['meta']['screenshot']) ?>" alt="<?= e($t['meta']['name'] ?? $t['name']) ?>">
@@ -126,6 +169,12 @@ foreach ($themes as $t) {
                         <div class="theme-card-placeholder">
                             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         </div>
+                    <?php endif; ?>
+                    <?php if ($isActiveTheme): ?>
+                    <div class="theme-card-active-badge">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        当前主题
+                    </div>
                     <?php endif; ?>
                 </div>
                 <div class="theme-card-body">
@@ -140,6 +189,11 @@ foreach ($themes as $t) {
                         <?php endif; ?>
                     </div>
                     <div class="theme-card-actions">
+                        <a href="<?= route('admin.themes.detail', ['name' => $t['name']]) ?>" class="btn btn-sm btn-secondary">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+                            详情
+                        </a>
+                        <?php if (!$isActiveTheme): ?>
                         <form method="post" action="<?= route('admin.themes.activate', ['name' => $t['name']]) ?>" class="inline-form">
                             <input type="hidden" name="_token" value="<?= csrf_token() ?>">
                             <button type="submit" class="btn btn-sm btn-primary">
@@ -147,13 +201,7 @@ foreach ($themes as $t) {
                                 激活
                             </button>
                         </form>
-                        <form method="post" action="<?= route('admin.themes.delete', ['name' => $t['name']]) ?>" class="inline-form" data-confirm="确定删除该主题？此操作不可恢复！">
-                            <input type="hidden" name="_token" value="<?= csrf_token() ?>">
-                            <button type="submit" class="btn btn-sm btn-secondary">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                删除
-                            </button>
-                        </form>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -164,14 +212,61 @@ foreach ($themes as $t) {
             <div class="theme-empty-icon">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </div>
-            <p>当前没有其他可用主题</p>
-            <p class="theme-empty-hint">上传新主题包来扩展外观</p>
+            <p><?= ($search !== '' || $statusFilter !== '') ? '未找到匹配的主题' : '暂无可用主题' ?></p>
+            <p class="theme-empty-hint"><?= ($search !== '' || $statusFilter !== '') ? '尝试其他搜索条件' : '上传新主题包来扩展外观' ?></p>
         </div>
     <?php endif; ?>
 </div>
 
 <script>
 (function() {
+    var themeIndexUrl = '<?= route('admin.themes.index') ?>';
+    var currentSearch = '<?= e($search) ?>';
+    var currentStatus = '<?= e($statusFilter) ?>';
+
+    function goFilter(opts) {
+        var q = ('q' in opts ? opts.q : currentSearch);
+        var s = ('status' in opts ? opts.status : currentStatus);
+        var params = [];
+        if (q) params.push('q=' + encodeURIComponent(q));
+        if (s) params.push('status=' + encodeURIComponent(s));
+        window.location.href = themeIndexUrl + (params.length ? '?' + params.join('&') : '');
+    }
+
+    // 搜索框：输入防抖跳转
+    var searchInput = document.getElementById('themeSearchInput');
+    if (searchInput) {
+        var debounceTimer = null;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                var val = searchInput.value.trim();
+                if (val !== currentSearch) {
+                    goFilter({ q: val });
+                }
+            }, 400);
+        });
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(debounceTimer);
+                goFilter({ q: searchInput.value.trim() });
+            }
+        });
+    }
+
+    // 状态标签：点击切换状态筛选
+    document.querySelectorAll('[data-status]').forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            var status = this.getAttribute('data-status') || '';
+            if (status !== currentStatus) {
+                goFilter({ status: status });
+            }
+        });
+    });
+
+    // 上传区域拖拽
     var box = document.getElementById('themeUploadBox');
     var input = document.getElementById('themeZipInput');
     var btn = document.getElementById('themeUploadBtn');

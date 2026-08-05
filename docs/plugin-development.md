@@ -4,7 +4,7 @@
 
 ```
 my-plugin/
-├── plugin.json          # 插件元信息（必需）
+├── plugin.json          # 插件元信息（推荐，与 PHP 头注释二选一或组合使用）
 ├── my-plugin.php        # 入口文件（必需，文件名需与目录名一致）
 ├── assets/
 │   ├── css/
@@ -13,7 +13,7 @@ my-plugin/
     └── Helper.php
 ```
 
-## plugin.json
+## plugin.json（推荐）
 
 ```json
 {
@@ -21,12 +21,57 @@ my-plugin/
     "description": "一个示例插件",
     "version": "1.0.0",
     "author": "你的名字",
+    "author_uri": "https://example.com",
+    "plugin_uri": "https://example.com/plugin",
+    "license": "MIT",
     "entry": "my-plugin.php",
-    "min_version": "1.0.0"
+    "min_version": "2.0.0",
+    "php_version": ">=8.0",
+    "tags": ["SEO", "性能优化"],
+    "requires": {
+        "extensions": ["zip", "gd"]
+    },
+    "depends_on": ["other-plugin"]
 }
 ```
 
-- `entry`：入口文件名（可选，默认为 `{目录名}.php`）
+### 字段说明
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `name` | string | ✓ | 插件名称 |
+| `description` | string | ✓ | 插件描述 |
+| `version` | string | ✓ | 插件版本（语义化版本） |
+| `author` | string | — | 作者名称 |
+| `author_uri` | string | — | 作者主页 |
+| `plugin_uri` | string | — | 插件主页 |
+| `license` | string | — | 许可证类型 |
+| `entry` | string | — | 入口文件名（默认 `{目录名}.php`） |
+| `min_version` | string | — | 要求的核心 CMS 最低版本 |
+| `php_version` | string | — | 要求的 PHP 最低版本（如 `>=8.0`） |
+| `tags` | array | — | 插件分类标签 |
+| `requires.extensions` | array | — | 要求的 PHP 扩展列表 |
+| `depends_on` | array | — | 依赖的其他插件列表 |
+
+> **注意**：plugin.json 与 PHP 头注释可以组合使用，JSON 优先，PHP 头注释补充缺失字段。
+
+## PHP 头注释方式
+
+如果不使用 plugin.json，也可以在入口文件头部添加注释：
+
+```php
+<?php
+/**
+ * Plugin Name: 我的插件
+ * Description: 在文章底部添加版权声明
+ * Version: 1.0.0
+ * Author: 你的名字
+ * Author URI: https://example.com
+ * Plugin URI: https://example.com/plugin
+ * License: MIT
+ * Requires PHP: 8.0
+ */
+```
 
 ## 入口文件示例
 
@@ -62,19 +107,46 @@ add_action('post_saved', function ($id, $data, $isUpdate) {
 });
 ```
 
-## 激活/停用回调
+## 激活/停用/卸载回调
 
 ```php
 // 激活时执行（创建表、初始化配置等）
 register_activation_hook(function () {
     \Core\Log\Log::info('My plugin activated');
+    // 可以在此创建数据库表、设置默认配置等
+    \App\Models\Option::set('my_plugin_settings', [
+        'enabled' => true,
+        'option1' => 'value1',
+    ]);
 });
 
-// 停用时执行（清理数据等）
+// 停用时执行（清理临时数据、保留配置等）
 register_deactivation_hook(function () {
     \Core\Log\Log::info('My plugin deactivated');
+    // 可以在此清理缓存、临时数据，但保留配置
+    app(\Core\Cache\CacheInterface::class)->delete('my_plugin_cache');
+});
+
+// 卸载时执行（清理所有数据）
+register_uninstall_hook(function () {
+    \Core\Log\Log::info('My plugin uninstalled');
+    // 可以在此删除所有插件相关的配置、数据表等
+    \App\Models\Option::delete_by_key('my_plugin_settings');
 });
 ```
+
+> **重要**：`register_activation_hook`、`register_deactivation_hook`、`register_uninstall_hook` 必须在插件入口文件的顶层调用，不能在函数或类方法内部调用。
+
+## 兼容性检查
+
+插件激活时会自动检查以下兼容性：
+
+1. **PHP 版本**：根据 `min_version` 或 `Requires PHP` 字段
+2. **核心版本**：根据 `min_version` 字段
+3. **PHP 扩展**：根据 `requires.extensions` 字段
+4. **依赖插件**：根据 `depends_on` 字段检查依赖插件是否已激活
+
+如果兼容性检查失败，插件将无法激活，并会显示具体的错误信息。
 
 ## 打包上传
 
@@ -87,6 +159,12 @@ zip -r my-plugin.zip my-plugin/
 
 # 3. 激活
 ```
+
+## 安全注意事项
+
+1. **ZIP 路径穿透防护**：上传的 ZIP 文件会自动检查是否包含路径穿越攻击（如 `../../../etc/passwd`），不安全的 ZIP 将被拒绝
+2. **错误隔离**：插件加载出错不会导致整个系统崩溃，错误会被记录到日志中
+3. **输入校验**：插件应自行对用户输入进行校验和清理
 
 ## API 参考
 
@@ -102,6 +180,21 @@ zip -r my-plugin.zip my-plugin/
 | `view($template, $data = [])` | 渲染视图 |
 | `current_user()` | 当前登录用户（未登录返回 null） |
 | `can($capability, $args = null)` | 权限检查 |
+
+### Hook 系统
+
+| 函数 | 说明 |
+|------|------|
+| `add_action($name, $callback, $priority)` | 注册 Action 钩子 |
+| `do_action($name, ...$args)` | 执行 Action 钩子 |
+| `has_action($name)` | 检查是否有 Action |
+| `remove_action($name, $callback)` | 移除 Action 钩子 |
+| `add_filter($name, $callback, $priority)` | 注册 Filter 钩子 |
+| `apply_filters($name, $value, ...$args)` | 应用 Filter 钩子 |
+| `remove_filter($name, $callback)` | 移除 Filter 钩子 |
+| `register_activation_hook($callback)` | 注册激活回调 |
+| `register_deactivation_hook($callback)` | 注册停用回调 |
+| `register_uninstall_hook($callback)` | 注册卸载回调 |
 
 ### 模型查询
 
@@ -169,3 +262,5 @@ app(\Core\Cache\CacheInterface::class)->delete('key');
 3. **SQL 必须参数化**：用 QueryBuilder 或 PDO prepare，不要拼 SQL
 4. **输出必须转义**：用户数据输出前用 `e()` 转义
 5. **不要直接修改核心文件**：所有自定义通过 Hook 实现
+6. **激活回调必须在顶层**：`register_*_hook()` 不能在函数或方法内部调用
+7. **处理错误异常**：回调中的异常不会导致系统崩溃，但建议自行 try-catch

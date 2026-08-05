@@ -19,8 +19,8 @@
             $footerMenu = wp_nav_menu(['theme_location' => 'footer', 'container' => 'span', 'echo' => false]);
             if ($footerMenu) {
                 echo preg_replace(
-                    ['/<li class="[^"]*">/', '/<\/li>/', '/<a\s+/', '/<ul\s*>/', '/<\/ul>/'],
-                    ['<a class="blog-footer__link" ', '</a>', '<a class="blog-footer__link" ', '', ''],
+                    ['/<li[^>]*>\s*<a\s+/', '/<\/a>\s*<\/li>/', '/<ul[^>]*>/', '/<\/ul>/'],
+                    ['<a class="blog-footer__link" ', '</a>', '', ''],
                     $footerMenu
                 );
             }

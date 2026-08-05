@@ -5,15 +5,41 @@
     // ===== Sidebar toggle (mobile) =====
     var sidebar = document.getElementById('adminSidebar');
     var toggle = document.getElementById('sidebarToggle');
+    var overlay = document.getElementById('adminOverlay');
+    
+    function toggleSidebar(open) {
+        var willOpen = open !== undefined ? open : !sidebar.classList.contains('open');
+        sidebar.classList.toggle('open', willOpen);
+        if (overlay) {
+            overlay.classList.toggle('active', willOpen);
+        }
+    }
+
     if (sidebar && toggle) {
         toggle.addEventListener('click', function (e) {
             e.stopPropagation();
-            sidebar.classList.toggle('open');
+            toggleSidebar();
         });
+
+        // Close when clicking overlay
+        if (overlay) {
+            overlay.addEventListener('click', function () {
+                toggleSidebar(false);
+            });
+        }
+
+        // Close when clicking outside sidebar
         document.addEventListener('click', function (e) {
             if (window.innerWidth <= 768 && sidebar.classList.contains('open') &&
                 !sidebar.contains(e.target) && !toggle.contains(e.target)) {
-                sidebar.classList.remove('open');
+                toggleSidebar(false);
+            }
+        });
+        
+        // Handle resize
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 768 && sidebar.classList.contains('open')) {
+                toggleSidebar(false);
             }
         });
     }

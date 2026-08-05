@@ -3,39 +3,43 @@
 namespace Core\View;
 
 use Core\Http\Response;
+use Core\Theme\ThemeInstaller;
+use Core\Theme\TemplateResolver;
+use Core\Theme\ThemeConfigManager;
 
 /**
- * 主题管理器 — 模仿 WordPress 模板层级 + 父子主题 + 页面模板。
+ * 主题管理器 — 协调器（Facade 模式）。
  *
- * - 主题位于 public/themes/{name}/
- * - 主题入口 functions.php 在 boot 时加载
- * - 子主题在 theme.json 声明 "parent" → 模板按 child → parent 顺序查找
- * - 模板按层级查找：single-post-{slug}.php → single-post.php → single.php → index.php
- * - 后台可切换/上传/删除主题
- * - 激活时触发 after_switch_theme hook
+ * 统筹三个子组件：
+ * - ThemeInstaller    → 安装/删除/校验
+ * - TemplateResolver  → 模板查找/渲染/父子回溯
+ * - ThemeConfigManager → 配置读写/元数据解析/合并
+ *
+ * 保持向后兼容，原有公共方法签名不变。
  */
 class ThemeManager
 {
     private string $activeTheme = 'default';
     private string $themeRoot;
 
-    /** @var array<string, mixed> */
-    private array $themeConfig = [];
-
-    /** @var array<string, mixed>|null parent theme config */
-    private ?array $parentConfig = null;
-
-    private ?string $parentTheme = null;
-
-    /** @var array<int, array> data stack for partials to access parent scope */
-    private array $dataStack = [];
+    private ThemeInstaller $installer;
+    private TemplateResolver $resolver;
+    private ThemeConfigManager $configManager;
 
     private bool $booted = false;
+
+    /** @var array<string, string> 错误记录 */
+    private array $errors = [];
 
     public function __construct()
     {
         $this->themeRoot = themes_path();
+        $this->installer = new ThemeInstaller($this->themeRoot);
+        $this->resolver = new TemplateResolver($this->themeRoot);
+        $this->configManager = new ThemeConfigManager($this->themeRoot);
     }
+
+    /* ═══════════════ 生命周期 ═══════════════ */
 
     public function boot(): void
     {
@@ -44,18 +48,29 @@ class ThemeManager
         }
         $this->booted = true;
         $this->activeTheme = $this->resolveActiveTheme();
-        $this->themeConfig = $this->readThemeMeta($this->path());
+        $parentTheme = $this->resolveParentTheme();
+        $this->configManager->setActiveTheme($this->activeTheme, $parentTheme);
+        $this->resolver->setActiveTheme($this->activeTheme, $parentTheme);
 
-        // Detect parent theme
-        $parent = $this->themeConfig['parent'] ?? null;
-        if ($parent && is_dir($this->themeRoot . '/' . $parent)) {
-            $this->parentTheme = $parent;
-            $this->parentConfig = $this->readThemeMeta($this->themeRoot . '/' . $parent);
-        }
-
+        // 加载主题函数
         $this->loadThemeFunctions();
+
+        // 注册主题侧边栏/菜单
+        $this->registerThemeSidebars();
+        $this->registerThemeMenus();
+
+        // 自动注册 theme.json 声明的资源
+        $this->autoRegisterAssets();
+
+        // 输出 CSS 自定义属性
+        $this->outputCssVariables();
+
+        do_action('theme_loaded');
     }
 
+    /**
+     * 从数据库解析当前激活的主题。
+     */
     private function resolveActiveTheme(): string
     {
         try {
@@ -69,10 +84,348 @@ class ThemeManager
         return (string) config('app.theme', 'default');
     }
 
-    public function setActiveTheme(string $name): void
+    /**
+     * 解析父主题名称。
+     */
+    private function resolveParentTheme(): ?string
     {
-        $this->activeTheme = $name;
+        $config = $this->configManager->getConfig();
+        $parent = $config['parent'] ?? null;
+        if ($parent && is_dir($this->themeRoot . '/' . $parent)) {
+            return $parent;
+        }
+        return null;
     }
+
+    /**
+     * 加载主题 functions.php。
+     */
+    private function loadThemeFunctions(): void
+    {
+        $parent = $this->configManager->getParentTheme();
+
+        // 先加载父主题 functions.php
+        if ($parent) {
+            $parentFunc = $this->themeRoot . '/' . $parent . '/functions.php';
+            if (is_file($parentFunc)) {
+                try {
+                    require $parentFunc;
+                } catch (\Throwable $e) {
+                    $this->errors['parent_theme'] = '父主题加载错误: ' . $e->getMessage();
+                    \Core\Log\Log::warning('Parent theme functions.php error: ' . $e->getMessage());
+                }
+            }
+        }
+
+        // 再加载子主题 functions.php
+        $childFunc = $this->path('functions.php');
+        if ($childFunc && is_file($childFunc)) {
+            try {
+                require $childFunc;
+            } catch (\Throwable $e) {
+                $this->errors[$this->activeTheme] = 'load_error: ' . $e->getMessage();
+                \Core\Log\Log::warning('Theme functions.php error: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /* ═══════════════ 激活/停用（含安全回滚） ═══════════════ */
+
+    /**
+     * 激活主题 — 含激活前校验和故障自动回滚。
+     */
+    public function activate(string $name): void
+    {
+        if (!$this->installer->exists($name)) {
+            throw new \RuntimeException("主题 [$name] 不存在。");
+        }
+
+        // 激活前校验
+        $this->validateBeforeActivate($name);
+
+        $old = $this->activeTheme;
+
+        // 触发 before_switch_theme 钩子
+        $canSwitch = apply_filters('before_switch_theme', true, $name, $old);
+        if (!$canSwitch) {
+            throw new \RuntimeException("主题切换已被拦截。");
+        }
+
+        // 保存旧主题以备回滚
+        $previousActive = $this->activeTheme;
+
+        // 执行切换
+        $this->activeTheme = $name;
+        $this->configManager->setActiveTheme($name, $this->resolveParentThemeFor($name));
+        $this->resolver->setActiveTheme($name, $this->resolveParentThemeFor($name));
+
+        try {
+            // 尝试加载新主题
+            \App\Models\Option::set('active_theme', $name);
+            $this->loadThemeFunctions();
+            $this->registerThemeSidebars();
+            $this->registerThemeMenus();
+            $this->autoRegisterAssets();
+
+            do_action('theme_activated', $name, $old);
+            do_action('after_switch_theme', $name, $old);
+        } catch (\Throwable $e) {
+            // 故障自动回滚
+            $this->activeTheme = $previousActive;
+            $this->configManager->setActiveTheme($previousActive, $this->resolveParentThemeFor($previousActive));
+            $this->resolver->setActiveTheme($previousActive, $this->resolveParentThemeFor($previousActive));
+            \App\Models\Option::set('active_theme', $previousActive);
+
+            \Core\Log\Log::error("Theme activation failed, rolled back to [$previousActive]: " . $e->getMessage());
+            throw new \RuntimeException("主题 [$name] 激活失败，已自动回滚到 [$previousActive]: " . $e->getMessage());
+        }
+
+        do_action('theme_deactivated', $old, $name);
+    }
+
+    /**
+     * 激活前校验。
+     */
+    private function validateBeforeActivate(string $name): void
+    {
+        $dir = $this->themeRoot . '/' . $name;
+
+        // 校验 theme.json 是否为合法 JSON
+        $jsonFile = $dir . '/theme.json';
+        if (is_file($jsonFile)) {
+            $content = file_get_contents($jsonFile);
+            if ($content === false || json_decode($content) === null && $content !== '') {
+                throw new \RuntimeException("主题 [$name] 的 theme.json 文件格式错误。");
+            }
+        }
+
+        // 校验 PHP 语法
+        $funcFile = $dir . '/functions.php';
+        if (is_file($funcFile)) {
+            if (!$this->installer->validatePhpSyntax($funcFile)) {
+                throw new \RuntimeException("主题 [$name] 的 functions.php 存在语法错误。");
+            }
+        }
+
+        // 校验 requires_php
+        $meta = $this->configManager->getConfig();
+        $requiresPhp = $meta['requires_php'] ?? '';
+        if ($requiresPhp) {
+            $required = ltrim($requiresPhp, '>=^~');
+            if (version_compare(PHP_VERSION, $required, '<')) {
+                throw new \RuntimeException("主题 [$name] 需要 PHP {$required}+，当前 PHP " . PHP_VERSION);
+            }
+        }
+    }
+
+    /**
+     * 解析指定主题的父主题。
+     */
+    private function resolveParentThemeFor(string $name): ?string
+    {
+        $dir = $this->themeRoot . '/' . $name;
+        $jsonFile = $dir . '/theme.json';
+        if (is_file($jsonFile)) {
+            $data = json_decode(file_get_contents($jsonFile) ?: '', true);
+            $parent = $data['parent'] ?? null;
+            if ($parent && is_dir($this->themeRoot . '/' . $parent)) {
+                return $parent;
+            }
+        }
+        return null;
+    }
+
+    /* ═══════════════ 委托方法 ═══════════════ */
+
+    /** @see ThemeInstaller::installFromZip() */
+    public function installFromZip(string $zipPath): array
+    {
+        return $this->installer->installFromZip($zipPath);
+    }
+
+    /** @deprecated 使用 installFromZip */
+    public function uploadZip(string $zipPath, string $originalName = ''): array
+    {
+        return $this->installer->installFromZip($zipPath);
+    }
+
+    /** @see ThemeInstaller::deleteTheme() */
+    public function deleteTheme(string $name): bool
+    {
+        return $this->installer->deleteTheme($name);
+    }
+
+    /** @see ThemeInstaller::listThemes() */
+    public function listThemes(): array
+    {
+        return $this->installer->listThemes();
+    }
+
+    /** @see ThemeInstaller::exists() */
+    public function exists(string $name): bool
+    {
+        return $this->installer->exists($name);
+    }
+
+    /** @see TemplateResolver::render() */
+    public function render(string $template, array $data = []): Response
+    {
+        return $this->resolver->render($template, $data);
+    }
+
+    /** @see TemplateResolver::partial() */
+    public function partial(string $name, array $data = []): string
+    {
+        return $this->resolver->partial($name, $data);
+    }
+
+    /** @see TemplateResolver::renderFile() */
+    public function renderFile(string $path, array $data): Response
+    {
+        return $this->resolver->renderFile($path, $data);
+    }
+
+    /** @see TemplateResolver::resolvePath() */
+    public function resolvePath(string $relative): ?string
+    {
+        return $this->resolver->resolvePath($relative);
+    }
+
+    /** @see TemplateResolver::templateExists() */
+    public function templateExists(string $template): bool
+    {
+        return $this->resolver->templateExists($template);
+    }
+
+    /** @see TemplateResolver::templatePath() */
+    public function templatePath(string $template): string
+    {
+        return $this->resolver->templatePath($template);
+    }
+
+    /** @see TemplateResolver::assetUrl() */
+    public function asset(string $path): string
+    {
+        $url = $this->resolver->assetUrl($path);
+        // 自动附加版本号（基于主题版本或文件修改时间）
+        $themeVersion = $this->configManager->getConfig()['version'] ?? '';
+        $sep = str_contains($url, '?') ? '&' : '?';
+        if ($themeVersion) {
+            $url .= $sep . 'ver=' . urlencode($themeVersion);
+        } else {
+            // 基于文件修改时间
+            $relative = ltrim($path, '/');
+            $filePath = $this->path($relative);
+            if (is_file($filePath)) {
+                $url .= $sep . 't=' . filemtime($filePath);
+            }
+        }
+        return $url;
+    }
+
+    /** @see ThemeConfigManager::getOption() */
+    public function config(?string $key = null, mixed $default = null): mixed
+    {
+        return $this->configManager->getOption($key, $default);
+    }
+
+    /** @see ThemeConfigManager::getAllOptions() */
+    public function getAllConfig(): array
+    {
+        return $this->configManager->getAllOptions();
+    }
+
+    /** @see ThemeConfigManager::setOption() */
+    public function setConfig(string $key, mixed $value): void
+    {
+        $this->configManager->setOption($key, $value);
+    }
+
+    /** @see ThemeConfigManager::deleteOption() */
+    public function deleteConfig(string $key): void
+    {
+        $this->configManager->deleteOption($key);
+    }
+
+    /** @see ThemeConfigManager::getPageTemplates() */
+    public function getPageTemplates(): array
+    {
+        return $this->configManager->getPageTemplates();
+    }
+
+    /** @see ThemeConfigManager::getMenuLocations() */
+    public function getMenuLocations(): array
+    {
+        return $this->configManager->getMenuLocations();
+    }
+
+    /** @see ThemeConfigManager::getSidebars() */
+    public function getSidebars(): array
+    {
+        return $this->configManager->getSidebars();
+    }
+
+    /** @see ThemeConfigManager::getScreenshots() */
+    public function getScreenshots(): array
+    {
+        return $this->configManager->getScreenshots();
+    }
+
+    /** @see ThemeConfigManager::getChangelog() */
+    public function getChangelog(): array
+    {
+        return $this->configManager->getChangelog();
+    }
+
+    /** @see ThemeConfigManager::getRecommendedPlugins() */
+    public function getRecommendedPlugins(): array
+    {
+        return $this->configManager->getRecommendedPlugins();
+    }
+
+    /** @see ThemeConfigManager::getCategory() */
+    public function getCategory(): string
+    {
+        return $this->configManager->getCategory();
+    }
+
+    /** @see ThemeConfigManager::getTags() */
+    public function getTags(): array
+    {
+        return $this->configManager->getTags();
+    }
+
+    /** @see ThemeConfigManager::getRequires() */
+    public function getRequires(): string
+    {
+        return $this->configManager->getRequires();
+    }
+
+    /** @see ThemeConfigManager::getRequiresPhp() */
+    public function getRequiresPhp(): string
+    {
+        return $this->configManager->getRequiresPhp();
+    }
+
+    /** @see ThemeConfigManager::getUpdateUrl() */
+    public function getUpdateUrl(): string
+    {
+        return $this->configManager->getUpdateUrl();
+    }
+
+    /** @see ThemeConfigManager::getDemoUrl() */
+    public function getDemoUrl(): string
+    {
+        return $this->configManager->getDemoUrl();
+    }
+
+    /** @see ThemeConfigManager::generateCssVariables() */
+    public function generateCssVariables(): string
+    {
+        return $this->configManager->generateCssVariables();
+    }
+
+    /* ═══════════════ 简单属性访问 ═══════════════ */
 
     public function activeTheme(): string
     {
@@ -81,270 +434,53 @@ class ThemeManager
 
     public function parentTheme(): ?string
     {
-        return $this->parentTheme;
+        return $this->configManager->getParentTheme();
     }
 
-    /**
-     * 当前主题目录路径（子主题优先）。
-     */
     public function path(string $relative = ''): string
     {
         return $this->themeRoot . '/' . $this->activeTheme . ($relative ? '/' . ltrim($relative, '/') : '');
     }
 
-    /**
-     * 父主题目录路径。
-     */
     public function parentPath(string $relative = ''): ?string
     {
-        if (!$this->parentTheme) {
+        $parent = $this->configManager->getParentTheme();
+        if (!$parent) {
             return null;
         }
-        return $this->themeRoot . '/' . $this->parentTheme . ($relative ? '/' . ltrim($relative, '/') : '');
+        return $this->themeRoot . '/' . $parent . ($relative ? '/' . ltrim($relative, '/') : '');
     }
 
-    /**
-     * 在子→父中查找文件路径。
-     */
-    public function resolvePath(string $relative): ?string
+    public function setActiveTheme(string $name): void
     {
-        $childPath = $this->path($relative);
-        if (is_file($childPath)) {
-            return $childPath;
-        }
-        if ($this->parentPath()) {
-            $parentPath = $this->parentPath($relative);
-            if ($parentPath && is_file($parentPath)) {
-                return $parentPath;
-            }
-        }
-        return null;
-    }
-
-    private function loadThemeFunctions(): void
-    {
-        // Load parent functions.php first (if child theme)
-        if ($this->parentPath('functions.php')) {
-            require $this->parentPath('functions.php');
-        }
-        // Then child functions.php (can override parent hooks)
-        $childFunc = $this->path('functions.php');
-        if ($childFunc && (!file_exists($childFunc) || $childFunc !== $this->parentPath('functions.php'))) {
-            if (is_file($childFunc)) {
-                require $childFunc;
-            }
-        }
-        do_action('theme_loaded');
-    }
-
-    public function templateExists(string $template): bool
-    {
-        return $this->resolvePath('templates/' . $template . '.php') !== null;
-    }
-
-    public function templatePath(string $template): string
-    {
-        $resolved = $this->resolvePath('templates/' . $template . '.php');
-        return $resolved ?? $this->path('templates/' . $template . '.php');
-    }
-
-    /**
-     * Render a template, with template hierarchy fallback.
-     */
-    public function render(string $template, array $data = []): Response
-    {
-        do_action('template_redirect', $template, $data);
-
-        $override = apply_filters('template_include', null, $template, $data);
-        if (is_string($override) && is_file($override)) {
-            return $this->renderFile($override, $data);
-        }
-
-        $candidates = $this->templateHierarchy($template);
-        foreach ($candidates as $tpl) {
-            if ($this->templateExists($tpl)) {
-                return $this->renderFile($this->templatePath($tpl), $data);
-            }
-        }
-        $resp = new Response();
-        $resp->setContentType('text/html')
-            ->setBody("<h1>Template missing: $template</h1>")
-            ->setStatus(500);
-        return $resp;
-    }
-
-    private function templateHierarchy(string $template): array
-    {
-        return match ($template) {
-            'home', 'index', 'single', 'page', 'archive', 'category', 'tag', 'author', 'search', '404', 'feed', 'error' => [$template, 'index'],
-            default => [$template],
-        };
-    }
-
-    private function renderFile(string $__path, array $__data): Response
-    {
-        if (!is_file($__path)) {
-            return (new Response())->setBody("Missing template: $__path")->setStatus(500);
-        }
-        $this->dataStack[] = $__data;
-        extract($__data, EXTR_SKIP);
-        ob_start();
-        $theme = $this;
-        $resp = new Response();
-        try {
-            include $__path;
-        } catch (\Throwable $e) {
-            ob_end_clean();
-            array_pop($this->dataStack);
-            throw $e;
-        }
-        $body = ob_get_clean();
-        array_pop($this->dataStack);
-        do_action('template_rendered', $__path, $__data);
-        $body = apply_filters('template_output', $body, $__path, $__data);
-        $resp->setContentType('text/html')->setBody((string) $body);
-        return $resp;
-    }
-
-    /**
-     * Render a partial with data — 子→父 fallback。
-     */
-    public function partial(string $name, array $data = []): string
-    {
-        $relative = 'partials/' . $name . '.php';
-        $path = $this->resolvePath($relative);
-        if (!$path) {
-            return "<!-- partial $name missing -->";
-        }
-        $parentData = !empty($this->dataStack) ? end($this->dataStack) : [];
-        $merged = array_merge($parentData, $data);
-        $this->dataStack[] = $merged;
-        extract($merged, EXTR_SKIP);
-        ob_start();
-        $theme = $this;
-        try {
-            include $path;
-        } catch (\Throwable $e) {
-            ob_end_clean();
-            array_pop($this->dataStack);
-            throw $e;
-        }
-        $body = ob_get_clean();
-        array_pop($this->dataStack);
-        return (string) $body;
-    }
-
-    /**
-     * Asset URL for current theme (子主题资产 → 父主题 fallback)。
-     */
-    public function asset(string $path): string
-    {
-        $relative = ltrim($path, '/');
-        // 子主题有此资产 → 用子主题 URL
-        if (is_file($this->path($relative))) {
-            return url('themes/' . $this->activeTheme . '/' . $relative);
-        }
-        // 父主题有此资产 → 用父主题 URL
-        if ($this->parentPath($relative) && is_file($this->parentPath($relative))) {
-            return url('themes/' . $this->parentTheme . '/' . $relative);
-        }
-        // 默认用子主题路径
-        return url('themes/' . $this->activeTheme . '/' . $relative);
-    }
-
-    /**
-     * 读取主题选项值（从 DB options 表，key 前缀 theme_{theme}_{key}）。
-     */
-    public function config(?string $key = null, mixed $default = null): mixed
-    {
-        if ($key === null) {
-            return $this->themeConfig;
-        }
-        $optionKey = 'theme_' . $this->activeTheme . '_' . $key;
-        try {
-            $val = \App\Models\Option::get($optionKey);
-            if ($val !== null) {
-                return $val;
-            }
-        } catch (\Throwable) {
-        }
-        // Fallback to theme.json default
-        $options = $this->themeConfig['options'] ?? [];
-        if (isset($options[$key]['default'])) {
-            return $options[$key]['default'];
-        }
-        return $default;
-    }
-
-    /**
-     * 获取主题自定义页面模板列表。
-     */
-    public function getPageTemplates(): array
-    {
-        $templates = $this->themeConfig['page_templates'] ?? [];
-        if ($this->parentConfig) {
-            $parentTemplates = $this->parentConfig['page_templates'] ?? [];
-            $templates = array_merge($parentTemplates, $templates);
-        }
-        return $templates;
-    }
-
-    /**
-     * 获取主题声明的菜单位置。
-     */
-    public function getMenuLocations(): array
-    {
-        $menus = $this->themeConfig['menus'] ?? [];
-        if ($this->parentConfig) {
-            $menus = array_merge($this->parentConfig['menus'] ?? [], $menus);
-        }
-        return $menus;
-    }
-
-    /**
-     * 获取主题声明的 Widget 区域。
-     */
-    public function getSidebars(): array
-    {
-        $sidebars = $this->themeConfig['sidebars'] ?? [];
-        if ($this->parentConfig) {
-            $sidebars = array_merge($this->parentConfig['sidebars'] ?? [], $sidebars);
-        }
-        return $sidebars;
-    }
-
-    /**
-     * 激活主题 — 触发 after_switch_theme。
-     */
-    public function activate(string $name): void
-    {
-        $old = $this->activeTheme;
         $this->activeTheme = $name;
-        $this->themeConfig = $this->readThemeMeta($this->path());
-        $this->parentTheme = null;
-        $this->parentConfig = null;
-
-        $parent = $this->themeConfig['parent'] ?? null;
-        if ($parent && is_dir($this->themeRoot . '/' . $parent)) {
-            $this->parentTheme = $parent;
-            $this->parentConfig = $this->readThemeMeta($this->themeRoot . '/' . $parent);
-        }
-
-        \App\Models\Option::set('active_theme', $name);
-
-        // Register theme sidebars/menus from theme.json
-        $this->registerThemeSidebars();
-        $this->registerThemeMenus();
-
-        do_action('after_switch_theme', $name, $old);
     }
 
-    /**
-     * 从 theme.json 注册 Widget 区域。
-     */
+    public function getErrors(): array
+    {
+        return $this->errors;
+    }
+
+    public function getInstaller(): ThemeInstaller
+    {
+        return $this->installer;
+    }
+
+    public function getResolver(): TemplateResolver
+    {
+        return $this->resolver;
+    }
+
+    public function getConfigManager(): ThemeConfigManager
+    {
+        return $this->configManager;
+    }
+
+    /* ═══════════════ 内部辅助 ═══════════════ */
+
     private function registerThemeSidebars(): void
     {
-        $sidebars = $this->getSidebars();
+        $sidebars = $this->configManager->getSidebars();
         foreach ($sidebars as $id => $config) {
             if (is_array($config)) {
                 $config['id'] = $id;
@@ -353,130 +489,56 @@ class ThemeManager
         }
     }
 
-    /**
-     * 从 theme.json 注册菜单位置。
-     */
     private function registerThemeMenus(): void
     {
-        $menus = $this->getMenuLocations();
+        $menus = $this->configManager->getMenuLocations();
         foreach ($menus as $location => $description) {
             register_nav_menu($location, $description);
         }
     }
 
     /**
-     * List all themes.
+     * 自动注册 theme.json 中声明的样式和脚本资源。
      */
-    public function listThemes(): array
+    private function autoRegisterAssets(): void
     {
-        $result = [];
-        if (!is_dir($this->themeRoot)) {
-            return $result;
-        }
-        foreach ((array) glob($this->themeRoot . '/*', GLOB_ONLYDIR) as $dir) {
-            $name = basename($dir);
-            $meta = $this->readThemeMeta($dir);
-            $result[$name] = ['name' => $name, 'dir' => $dir, 'meta' => $meta];
-        }
-        return $result;
-    }
-
-    public function readThemeMeta(string $dir): array
-    {
-        $jsonFile = $dir . '/theme.json';
-        if (is_file($jsonFile)) {
-            $data = json_decode(file_get_contents($jsonFile) ?: '', true);
-            return is_array($data) ? $data : [];
-        }
-        $file = $dir . '/functions.php';
-        if (is_file($file)) {
-            $headers = $this->parseFileHeaders($file, [
-                'name' => 'Theme Name', 'description' => 'Description',
-                'version' => 'Version', 'author' => 'Author',
-            ]);
-            if (!empty($headers['name'])) {
-                return $headers;
+        $styles = $this->configManager->getDeclaredStyles();
+        foreach ($styles as $id => $cfg) {
+            if (is_array($cfg) && isset($cfg['src'])) {
+                $src = $this->asset($cfg['src']);
+                $deps = $cfg['deps'] ?? [];
+                $ver = $cfg['ver'] ?? ($this->configManager->getConfig()['version'] ?? '');
+                enqueue_style($id, $src, $deps, $ver);
             }
         }
-        return ['name' => basename($dir), 'version' => '0.0.0'];
-    }
 
-    private function parseFileHeaders(string $file, array $fields): array
-    {
-        $content = file_get_contents($file);
-        $result = [];
-        foreach ($fields as $key => $label) {
-            if (preg_match('/\*\s*' . preg_quote($label, '/') . '\s*:\s*(.+)/i', $content, $m)) {
-                $result[$key] = trim($m[1]);
+        $scripts = $this->configManager->getDeclaredScripts();
+        foreach ($scripts as $id => $cfg) {
+            if (is_array($cfg) && isset($cfg['src'])) {
+                $src = $this->asset($cfg['src']);
+                $deps = $cfg['deps'] ?? [];
+                $ver = $cfg['ver'] ?? ($this->configManager->getConfig()['version'] ?? '');
+                $footer = $cfg['footer'] ?? true;
+                enqueue_script($id, $src, $deps, $ver, $footer);
             }
         }
-        return $result;
     }
 
-    public function installFromZip(string $zipPath): array
+    /**
+     * 输出 CSS 自定义属性（用于主题定制器）。
+     */
+    private function outputCssVariables(): void
     {
-        if (!class_exists(\ZipArchive::class)) {
-            throw new \RuntimeException('ZipArchive extension required.');
-        }
-        $zip = new \ZipArchive();
-        if (($code = $zip->open($zipPath)) !== true) {
-            throw new \RuntimeException("Cannot open zip: error code $code");
-        }
-        $tmpDir = $this->themeRoot . '/.upload-' . substr(md5((string) microtime(true)), 0, 8);
-        if (!is_dir($tmpDir)) {
-            @mkdir($tmpDir, 0777, true);
-        }
-        $zip->extractTo($tmpDir);
-        $zip->close();
+        $cssVars = $this->configManager->generateCssVariables();
+        $customCss = $this->configManager->getOption('custom_css', '');
 
-        $themeDir = null;
-        $entries = array_diff(scandir($tmpDir), ['.', '..']);
-        foreach ($entries as $entry) {
-            $candidate = $tmpDir . '/' . $entry;
-            if (is_dir($candidate) && (is_file($candidate . '/theme.json') || is_file($candidate . '/functions.php'))) {
-                $themeDir = $candidate;
-                $themeName = $entry;
-                break;
+        add_action('wp_head', function () use ($cssVars, $customCss) {
+            if ($cssVars) {
+                echo "<style id=\"theme-css-vars\">\n{$cssVars}</style>\n";
             }
-        }
-        if ($themeDir === null) {
-            $themeDir = $tmpDir;
-            $themeName = 'theme-' . substr(md5((string) microtime(true)), 0, 6);
-        }
-
-        $target = $this->themeRoot . '/' . $themeName;
-        if (is_dir($target)) {
-            $this->rrmdir($target);
-        }
-        rename($themeDir, $target);
-
-        if (is_dir($tmpDir)) {
-            $this->rrmdir($tmpDir);
-        }
-        $meta = $this->readThemeMeta($target);
-        return ['name' => $themeName, 'meta' => $meta];
-    }
-
-    public function deleteTheme(string $name): bool
-    {
-        $dir = $this->themeRoot . '/' . $name;
-        if (!is_dir($dir) || $name === $this->activeTheme) {
-            return false;
-        }
-        $this->rrmdir($dir);
-        return true;
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        foreach (array_diff(scandir($dir), ['.', '..']) as $f) {
-            $path = "$dir/$f";
-            if (is_dir($path)) {
-                $this->rrmdir($path);
-            } else {
-                @unlink($path);
+            if ($customCss) {
+                echo "<style id=\"theme-custom-css\">\n{$customCss}\n</style>\n";
             }
-        }
-        @rmdir($dir);
+        }, 1);
     }
 }

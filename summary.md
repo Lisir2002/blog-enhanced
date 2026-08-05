@@ -1,6 +1,6 @@
 # Blog Enhanced 项目重构总结
 
-> 更新时间：2026-08-05
+> 更新时间：2026-08-05（v3 增补：主题/插件页面深度优化）
 > 项目地址：https://github.com/Lisir2002/blog-enhanced
 
 ---
@@ -332,3 +332,301 @@ php -S 0.0.0.0:8000 -t public/ public/index.php
 php scripts/validate-routes.php   # 校验路由
 php scripts/list-routes.php       # 列出路由
 ```
+
+---
+
+## 七、主题/插件页面深度优化（v3 增补）
+
+> 本轮迭代聚焦于主题与插件管理后台的交互体验、视觉一致性、移动端适配，并将搜索筛选体系全面对齐其他后台页面（文章/评论/用户等）的统一规范。
+
+### 7.1 主题管理页面优化
+
+#### 7.1.1 当前主题纳入「可用主题」列表
+
+**问题**：原实现将当前激活主题从可用主题列表中分离，仅在顶部大卡片中展示，导致可用主题数量与实际列表数不一致，且用户无法在列表中对当前主题执行「详情」等操作。
+
+**解决方案**：当前主题既在顶部以大卡片形式突出展示，也作为可用主题之一出现在列表中，并通过视觉徽章和按钮差异区分状态。
+
+- 列表数据源：`$listThemes = $themes;`（包含全部主题，含当前主题）
+- 当前主题卡片左上角显示「当前主题」毛玻璃徽章
+- 当前主题卡片不显示「激活」按钮（因为已激活），仅保留「详情」入口
+- 状态筛选：`全部 / 当前主题 / 其他主题` 三档切换
+
+```php
+<?php foreach ($listThemes as $t): $isActiveTheme = ($t['name'] === $active); ?>
+    <div class="theme-card <?= $isActiveTheme ? 'active' : '' ?>">
+        <div class="theme-card-preview">
+            ...
+            <?php if ($isActiveTheme): ?>
+            <div class="theme-card-active-badge">
+                <svg ...><polyline points="20 6 9 17 4 12"/></svg>
+                当前主题
+            </div>
+            <?php endif; ?>
+        </div>
+        ...
+        <div class="theme-card-actions">
+            <a href="<?= route('admin.themes.detail', ['name' => $t['name']]) ?>" class="btn btn-sm btn-secondary">详情</a>
+            <?php if (!$isActiveTheme): ?>
+            <form method="post" action="<?= route('admin.themes.activate', ['name' => $t['name']]) ?>" class="inline-form">
+                <button type="submit" class="btn btn-sm btn-primary">激活</button>
+            </form>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endforeach; ?>
+```
+
+#### 7.1.2 搜索/筛选统一对齐
+
+将主题页面原先的非标准搜索 UI 替换为统一的 `.admin-filter-bar` 模式：
+
+- 搜索框：`.search-box` + 防抖跳转（400ms）
+- 状态标签：`.filter-tabs` + `data-status` 属性切换
+- 后端支持：`ThemeController::index()` 新增 `q` 与 `status` 查询参数
+
+```php
+public function index(): Response
+{
+    can_or_403('switch_themes');
+    $theme = app(ThemeManager::class);
+    $themes = $theme->listThemes();
+    $active = $theme->activeTheme();
+
+    $search = trim($_GET['q'] ?? '');
+    $statusFilter = trim($_GET['status'] ?? '');
+
+    return view('admin.themes.index', [
+        'themes'       => $themes,
+        'active'       => $active,
+        'search'       => $search,
+        'statusFilter' => $statusFilter,
+        'pageTitle'    => '主题管理',
+    ]);
+}
+```
+
+#### 7.1.3 主题详情入口补齐
+
+为主题管理列表的每张卡片补齐「详情」按钮入口，移动端和 PC 端均可直接点击进入 `admin.themes.detail` 页面，无需先激活再查看。
+
+### 7.2 插件管理页面重设计
+
+#### 7.2.1 页面布局重构
+
+**问题**：原插件页面布局简陋，缺少统计概览、视图切换、批量操作引导。
+
+**解决方案**：四区域布局，符合现代后台管理界面规范。
+
+```
+┌─────────────────────────────────────────────────┐
+│  页面头部 (.plugin-page-header)                  │
+│  ├─ 标题 + 描述                                   │
+│  └─ 操作区：视图切换 + 上传插件按钮               │
+├─────────────────────────────────────────────────┤
+│  上传区域 (.plugin-upload-section，可折叠)        │
+├─────────────────────────────────────────────────┤
+│  统计卡片 (.plugin-stats-bar)                    │
+│  [总插件] [已激活] [未激活] [有异常]              │
+├─────────────────────────────────────────────────┤
+│  筛选区域 (.admin-filter-bar)                    │
+│  🔍 [搜索框] [全部/已激活/未激活/有异常]          │
+├─────────────────────────────────────────────────┤
+│  批量操作栏 (.batch-actions-bar，选中时显示)     │
+├─────────────────────────────────────────────────┤
+│  插件列表 (.plugin-list-section)                 │
+│  ├─ 网格视图 (.plugin-grid)                      │
+│  └─ 列表视图 (.plugin-list-view)                 │
+└─────────────────────────────────────────────────┘
+```
+
+#### 7.2.2 视图切换（网格 / 列表）
+
+**问题**：移动端列表视图与网格视图视觉差异不明显，仅 `flex-direction` 改变无实际效果。
+
+**解决方案**：列表视图采用横向行式布局，移动端自适应换行为 2 行结构（标题行 + 操作行）。
+
+- PC 端列表视图：单行 `[图标 | 标题+描述 | 状态 | 操作]`
+- 移动端列表视图：2 行 `[图标 | 标题 | 状态]` + `[操作按钮组]`
+- 长标题自动省略号截断，避免挤压操作按钮
+
+```css
+.plugin-list-section[data-view="list"] .plugin-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+}
+
+@media (max-width: 768px) {
+  .plugin-list-section[data-view="list"] .plugin-card {
+    flex-wrap: wrap;
+    /* 标题行占满第一行 */
+  }
+}
+```
+
+#### 7.2.3 统计卡片可点击筛选
+
+4 个统计卡片（总数/已激活/未激活/有异常）均可点击切换对应状态筛选，与文章列表的状态卡片交互一致：
+
+```php
+<a href="javascript:;" class="plugin-stat-item <?= $statusFilter === 'active' ? 'is-current' : '' ?>" data-status="active">
+    <div class="stat-icon stat-icon-active">...</div>
+    <div class="stat-info">
+        <span class="stat-num"><?= $activeCount ?></span>
+        <span class="stat-label">已激活</span>
+    </div>
+</a>
+```
+
+#### 7.2.4 插件详情页重设计
+
+`resources/views/admin/plugins/detail.php` 采用两栏布局：
+
+- 左栏：插件基本信息（名称/版本/描述/作者/许可证/主页）+ 元数据列表
+- 右栏：操作面板（激活/停用/删除）+ 依赖关系 + Hook 注册清单 + 兼容性信息
+
+### 7.3 移动端适配修复
+
+#### 7.3.1 侧边栏遮挡定制页面
+
+**问题**：主题定制页面在移动端被固定侧边栏遮挡，无法完整查看。
+
+**解决方案**：
+
+- 在 `resources/views/layouts/admin.php` 新增移动端遮罩层 `.sidebar-overlay`
+- 点击遮罩或导航项后自动收起侧边栏
+- 侧边栏通过 `transform: translateX(-100%)` 隐藏，避免布局抖动
+
+```php
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+```
+
+```javascript
+// admin.js
+sidebarToggle.addEventListener('click', () => {
+    document.body.classList.toggle('sidebar-open');
+});
+sidebarOverlay.addEventListener('click', () => {
+    document.body.classList.remove('sidebar-open');
+});
+```
+
+#### 7.3.2 筛选栏移动端挤压
+
+**问题**：`.admin-filter-row-top` 默认 `flex-wrap: nowrap`，导致移动端搜索框与视图切换按钮溢出。
+
+**解决方案**：移动端断点下启用 `flex-wrap: wrap`，搜索框占满整行，视图切换右对齐。
+
+```css
+@media (max-width: 768px) {
+  .admin-filter-row-top {
+    flex-wrap: wrap;
+  }
+  .admin-filter-row-top .search-box {
+    flex: 1 1 100%;
+  }
+}
+```
+
+#### 7.3.3 主题卡片当前主题徽章
+
+新增 `.theme-card-active-badge` 毛玻璃效果样式，确保在浅色与深色封面图上均可清晰可见：
+
+```css
+.theme-card-active-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(79, 110, 247, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+```
+
+### 7.4 搜索/筛选统一规范
+
+为彻底解决「不同后台页面搜索筛选写法不一致」问题，确立以下统一规范，主题/插件页面已全面对齐：
+
+#### 7.4.1 UI 结构规范
+
+所有后台列表页必须使用以下统一结构：
+
+```html
+<div class="admin-filter-bar">
+    <div class="admin-filter-row-top">
+        <div class="search-box">
+            <svg class="search-icon">...</svg>
+            <input type="text" id="{module}SearchInput" class="form-control" autocomplete="off">
+        </div>
+        <!-- 可选：视图切换 / 高级筛选按钮 -->
+    </div>
+    <div class="filter-tabs admin-filter-tabs">
+        <a href="javascript:;" class="filter-tab is-default <?= $statusFilter === '' ? 'active' : '' ?>" data-status="">全部</a>
+        <a href="javascript:;" class="filter-tab <?= $statusFilter === 'active' ? 'active' : '' ?>" data-status="active">已激活</a>
+        <a href="javascript:;" class="filter-tab <?= $statusFilter === 'inactive' ? 'active' : '' ?>" data-status="inactive">未激活</a>
+    </div>
+</div>
+```
+
+#### 7.4.2 交互规范
+
+- **搜索输入**：400ms 防抖跳转，回车立即提交
+- **状态切换**：点击 `data-status` 标签即跳转，保留当前搜索关键词
+- **URL 参数**：`?q=关键词&status=active`，便于分享和浏览器后退
+- **后端处理**：控制器读取 `$_GET['q']` 与 `$_GET['status']`，在 PHP 层过滤后传给视图
+
+#### 7.4.3 对齐清单
+
+| 页面 | 搜索框 | 状态标签 | 视图切换 | 批量操作 | 统计卡片 |
+|------|--------|----------|----------|----------|----------|
+| 文章列表 | ✓ | ✓ | - | ✓ | - |
+| 分类列表 | ✓ | - | - | ✓ | - |
+| 标签列表 | ✓ | - | - | ✓ | - |
+| 评论列表 | ✓ | ✓ | - | ✓ | - |
+| 用户列表 | ✓ | ✓ | - | ✓ | - |
+| **主题列表** | ✓ | ✓ | - | - | - |
+| **插件列表** | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+### 7.5 修改文件清单（v3 增补）
+
+| 文件 | 改动 |
+|------|------|
+| `resources/views/admin/themes/index.php` | 当前主题纳入列表 + 统一筛选 UI + 详情入口 |
+| `resources/views/admin/plugins/index.php` | 四区域布局 + 视图切换 + 统计卡片 + 统一筛选 |
+| `resources/views/admin/plugins/detail.php` | **重写** - 两栏布局 + Hook 清单 |
+| `resources/views/admin/themes/detail.php` | **新增** - 主题详情页 |
+| `resources/views/admin/themes/customize.php` | **新增** - 主题定制页 |
+| `resources/views/layouts/admin.php` | 移动端遮罩层 + 侧边栏抽屉 |
+| `app/Controllers/Admin/ThemeController.php` | 新增 `q` / `status` 查询参数支持 |
+| `app/Controllers/Admin/PluginController.php` | 重构搜索 + 统计 + 详情 |
+| `public/assets/admin/admin.css` | 主题卡片徽章 + 移动端筛选栏 + 列表视图样式 |
+| `public/assets/admin/admin.js` | 侧边栏切换 + 批量操作 + 视图切换逻辑 |
+| `routes/admin.php` | 新增主题/插件详情路由 |
+
+### 7.6 验证结果（v3）
+
+- 主题管理页面（http://localhost:8000/admin/themes）：
+  - 顶部大卡片展示当前主题 ✓
+  - 可用主题列表含当前主题，数量徽章显示「1 个」 ✓
+  - 当前主题卡片显示「当前主题」徽章 ✓
+  - 当前主题卡片无「激活」按钮，仅显示「详情」 ✓
+- 插件管理页面（http://localhost:8000/admin/plugins）：
+  - 四区域布局正常 ✓
+  - 视图切换（网格/列表）功能正常 ✓
+  - 移动端列表视图 2 行布局正常 ✓
+  - 统计卡片可点击筛选 ✓
+- 移动端适配：
+  - 侧边栏抽屉 + 遮罩层正常 ✓
+  - 筛选栏搜索框 + 标签换行正常 ✓

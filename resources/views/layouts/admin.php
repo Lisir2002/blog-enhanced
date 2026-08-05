@@ -109,6 +109,9 @@ $currentPage = app(\Core\Http\Request::class)->path();
         </div>
     </aside>
 
+    <!-- Mobile Overlay -->
+    <div class="admin-overlay" id="adminOverlay"></div>
+
     <!-- ===== Main Content ===== -->
     <main class="admin-main">
         <header class="admin-header">

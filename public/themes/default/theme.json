@@ -4,10 +4,18 @@
     "description": "默认主题 - 简洁现代风，性能优先",
     "author": "Blog CMS",
     "homepage": "https://example.com",
+    "demo_url": "https://example.com/demo",
     "license": "MIT",
     "screenshot": "screenshot.jpg",
+    "screenshots": ["screenshot.jpg"],
     "requires": ">=1.0",
+    "requires_php": ">=8.1",
     "parent": null,
+    "category": "blog",
+    "tags": ["minimal", "responsive", "clean"],
+    "changelog": {
+        "1.0.0": "初始版本发布"
+    },
 
     "menus": {
         "primary": "主导航",
@@ -38,12 +46,14 @@
         "accent_color": {
             "type": "color",
             "label": "主题色",
-            "default": "#3b82f6"
+            "default": "#3b82f6",
+            "description": "设置网站的主色调"
         },
         "layout": {
             "type": "select",
             "label": "布局",
             "default": "sidebar-right",
+            "description": "选择页面布局方式",
             "choices": {
                 "sidebar-right": "右侧边栏",
                 "sidebar-left": "左侧边栏",
@@ -52,22 +62,18 @@
         },
         "custom_css": {
             "type": "textarea",
-            "label": "自定义 CSS"
+            "label": "自定义 CSS",
+            "description": "输入自定义 CSS 代码"
         }
     },
 
     "styles": {
         "style": {
             "src": "assets/css/style.css",
-            "deps": []
+            "deps": [],
+            "ver": "1.0.0"
         }
     },
 
-    "scripts": {
-        "main": {
-            "src": "assets/js/main.js",
-            "deps": [],
-            "footer": true
-        }
-    }
+    "scripts": {}
 }

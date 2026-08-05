@@ -19,6 +19,16 @@ use App\Models\Category;
  */
 class ThemeSystemTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // 注册为主题管理器为单例并引导
+        $this->app->singleton(\Core\View\ThemeManager::class);
+        $theme = app(\Core\View\ThemeManager::class);
+        \App\Models\Option::set('active_theme', 'default');
+        $theme->boot();
+    }
+
     /* ─────────── 条件标签 ─────────── */
 
     public function test_conditional_tags(): void

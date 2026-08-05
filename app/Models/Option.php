@@ -56,4 +56,10 @@ class Option extends Model
         }
         self::$cache[$key] = $value;
     }
+
+    public static function remove(string $key): void
+    {
+        static::query()->where('key_name', '=', $key)->delete();
+        unset(self::$cache[$key]);
+    }
 }

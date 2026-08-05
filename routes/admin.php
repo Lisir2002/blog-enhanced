@@ -78,16 +78,25 @@ $router->group(['prefix' => '/admin'], function (Router $router) {
 
     // Theme
     $router->get($prefix . '/themes', [ThemeController::class, 'index'])->name('admin.themes.index')->middleware(['admin']);
+    $router->get($prefix . '/themes/{name}', [ThemeController::class, 'detail'])->name('admin.themes.detail')->middleware(['admin']);
+    $router->get($prefix . '/themes/{name}/customize', [ThemeController::class, 'customize'])->name('admin.themes.customize')->middleware(['admin']);
     $router->post($prefix . '/themes/{name}/activate', [ThemeController::class, 'activate'])->name('admin.themes.activate')->middleware(['admin', 'csrf']);
     $router->post($prefix . '/themes/upload', [ThemeController::class, 'upload'])->name('admin.themes.upload')->middleware(['admin', 'csrf']);
     $router->post($prefix . '/themes/{name}/delete', [ThemeController::class, 'delete'])->name('admin.themes.delete')->middleware(['admin', 'csrf']);
+    $router->post($prefix . '/themes/{name}/config', [ThemeController::class, 'saveConfig'])->name('admin.themes.config')->middleware(['admin', 'csrf']);
+    $router->get($prefix . '/themes/{name}/preview', [ThemeController::class, 'preview'])->name('admin.themes.preview')->middleware(['admin']);
 
     // Plugins
     $router->get($prefix . '/plugins', [PluginController::class, 'index'])->name('admin.plugins.index')->middleware(['admin']);
+    $router->get($prefix . '/plugins/{name}', [PluginController::class, 'detail'])->name('admin.plugins.detail')->middleware(['admin']);
     $router->post($prefix . '/plugins/upload', [PluginController::class, 'upload'])->name('admin.plugins.upload')->middleware(['admin', 'csrf']);
+    $router->post($prefix . '/plugins/batch', [PluginController::class, 'batch'])->name('admin.plugins.batch')->middleware(['admin', 'csrf']);
     $router->post($prefix . '/plugins/{name}/activate', [PluginController::class, 'activate'])->name('admin.plugins.activate')->middleware(['admin', 'csrf']);
     $router->post($prefix . '/plugins/{name}/deactivate', [PluginController::class, 'deactivate'])->name('admin.plugins.deactivate')->middleware(['admin', 'csrf']);
     $router->post($prefix . '/plugins/{name}/delete', [PluginController::class, 'delete'])->name('admin.plugins.delete')->middleware(['admin', 'csrf']);
+    $router->post($prefix . '/plugins/{name}/config', [PluginController::class, 'saveConfig'])->name('admin.plugins.config')->middleware(['admin', 'csrf']);
+    $router->post($prefix . '/plugins/{name}/check-update', [PluginController::class, 'checkUpdate'])->name('admin.plugins.check-update')->middleware(['admin', 'csrf']);
+    $router->post($prefix . '/plugins/{name}/do-update', [PluginController::class, 'doUpdate'])->name('admin.plugins.do-update')->middleware(['admin', 'csrf']);
 
     // Media
     $router->get($prefix . '/media', [MediaController::class, 'index'])->name('admin.media.index')->middleware(['admin']);

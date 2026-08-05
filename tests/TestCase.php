@@ -54,6 +54,9 @@ abstract class TestCase extends BaseTestCase
         $this->app->singleton(\Core\Cache\FileCache::class);
         $this->app->singleton(\Core\Cache\CacheInterface::class, fn (Container $c) => $c->get(\Core\Cache\FileCache::class));
         $this->app->singleton(\Parsedown::class, fn () => (new \Parsedown())->setSafeMode(true));
+        $this->app->singleton(\Core\Hook\Action::class);
+        $this->app->singleton(\Core\Hook\Filter::class);
+        $this->app->singleton(\Core\Log\Log::class);
     }
 
     /**
