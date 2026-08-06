@@ -4060,9 +4060,54 @@ th.sortable .sort-arrow svg {
 /* ── 双栏布局 ── */
 /* 基础 flex 容器，具体尺寸由 customize.php 内联 style 控制 */
 .customizer-layout {
+  margin: -28px;
+  height: calc(100vh - var(--header-h, 60px));
   display: flex;
+  flex-direction: column;
   background: var(--c-bg);
   position: relative;
+  overflow: hidden;
+}
+
+.customizer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 28px;
+  background: var(--c-bg-card);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.customizer-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.customizer-header-left h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.customizer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.customizer-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -4509,6 +4554,9 @@ th.sortable .sort-arrow svg {
 
 /* ── 响应式 ── */
 @media (max-width: 1024px) {
+  .customizer-body {
+    flex-direction: column;
+  }
   .customizer-panel-left {
     width: 100%;
     min-width: 0;
@@ -4528,6 +4576,17 @@ th.sortable .sort-arrow svg {
 }
 
 @media (max-width: 768px) {
+  .customizer-layout {
+    margin: -16px;
+  }
+  .customizer-header {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    min-height: 48px;
+  }
+  .customizer-header-left h2 {
+    font-size: 1rem;
+  }
   .customizer-panel-left {
     max-height: 40vh;
   }
