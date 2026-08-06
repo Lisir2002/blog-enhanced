@@ -24,6 +24,18 @@ class Request
         $this->method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
         $this->path = '/' . trim(rawurldecode(parse_url($uri, PHP_URL_PATH) ?? '/'), '/') ?: '/';
+
+        // 解析 JSON 请求体
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            $raw = file_get_contents('php://input');
+            if ($raw) {
+                $json = json_decode($raw, true);
+                if (is_array($json)) {
+                    $this->inputs = array_merge($this->inputs, $json);
+                }
+            }
+        }
     }
 
     public static function capture(): static

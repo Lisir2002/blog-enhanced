@@ -568,17 +568,45 @@ class ThemeManager
 
     /**
      * 输出 CSS 自定义属性（用于主题定制器）。
+     * 支持预览模式：从 session 读取临时配置覆盖 DB 值。
+     * session 在闭包内读取（而非 boot 时），确保 previewAjax 设置的配置能生效。
      */
     private function outputCssVariables(): void
     {
-        $cssVars = $this->configManager->generateFullCssVariables();
-        $customCss = $this->configManager->getOption('custom_css', '');
-        $customJsHead = $this->configManager->getOption('custom_js_head', '');
-        $customJsFooter = $this->configManager->getOption('custom_js_footer', '');
+        $themeName = $this->activeTheme;
 
-        add_action('wp_head', function () use ($cssVars, $customCss, $customJsHead) {
-            if ($cssVars) {
-                echo "<style id=\"theme-css-vars\">\n{$cssVars}</style>\n";
+        add_action('wp_head', function () use ($themeName) {
+            // 在渲染时读取 session（而非 boot 时），确保 previewAjax 设置的配置生效
+            $previewConfig = [];
+            $previewMode = false;
+            try {
+                $session = app(\Core\Http\Session::class);
+                // 优先使用 session 中的预览主题名，fallback 到当前激活主题
+                $previewTheme = $session->get('theme_preview', '');
+                $configKey = 'theme_preview_config_' . ($previewTheme ?: $themeName);
+                $previewConfig = $session->get($configKey, []);
+                $previewMode = !empty($previewTheme);
+            } catch (\Throwable) {
+                // 无 session 或非预览模式
+            }
+
+            // 在渲染时读取配置值（确保预览模式下能获取到 session 中的最新值）
+            $customCss = $this->configManager->getOption('custom_css', '');
+            $customJsHead = $this->configManager->getOption('custom_js_head', '');
+            $cssVars = $this->configManager->generateFullCssVariables();
+
+            if ($previewMode && !empty($previewConfig)) {
+                // 预览模式：输出预览配置生成的 CSS 变量（覆盖原有变量）
+                $previewCss = $this->generatePreviewCssVars($previewConfig);
+                if ($previewCss) {
+                    echo "<style id=\"theme-css-vars\">\n{$previewCss}</style>\n";
+                } else {
+                    echo "<style id=\"theme-css-vars\">\n{$cssVars}</style>\n";
+                }
+            } else {
+                if ($cssVars) {
+                    echo "<style id=\"theme-css-vars\">\n{$cssVars}</style>\n";
+                }
             }
             if ($customCss) {
                 echo "<style id=\"theme-custom-css\">\n{$customCss}\n</style>\n";
@@ -588,10 +616,43 @@ class ThemeManager
             }
         }, 1);
 
-        if ($customJsFooter) {
-            add_action('wp_footer', function () use ($customJsFooter) {
+        // 页脚 JS 单独通过 wp_footer 注入（在 wp_head 闭包外，避免重复注册）
+        add_action('wp_footer', function () use ($themeName) {
+            // 同样在渲染时读取 session，确保预览模式生效
+            $customJsFooter = $this->configManager->getOption('custom_js_footer', '');
+            if ($customJsFooter) {
                 echo "<script id=\"theme-custom-js-footer\">\n{$customJsFooter}\n</script>\n";
-            }, 100);
+            }
+        }, 100);
+    }
+
+    /**
+     * 根据预览配置生成 CSS 变量。
+     * 只输出有 css_var 映射且值不同于默认值的配置项。
+     */
+    private function generatePreviewCssVars(array $previewConfig): string
+    {
+        $flat = $this->configManager->getFlatOptions();
+        $vars = [];
+
+        foreach ($flat as $key => $config) {
+            if (!is_array($config)) continue;
+            $cssVar = $config['css_var'] ?? '';
+            if (empty($cssVar)) continue;
+
+            if (!isset($previewConfig[$key])) continue;
+            $value = $previewConfig[$key];
+
+            if ($config['type'] === 'range' && isset($config['unit']) && $config['unit'] !== '') {
+                $vars[] = "  {$cssVar}: {$value}{$config['unit']};";
+            } elseif ($config['type'] === 'switch') {
+                $vars[] = "  {$cssVar}: " . ($value ? '1' : '0') . ";";
+            } else {
+                $vars[] = "  {$cssVar}: {$value};";
+            }
         }
+
+        if (empty($vars)) return '';
+        return ":root {\n" . implode("\n", $vars) . "\n}\n";
     }
 }

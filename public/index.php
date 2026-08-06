@@ -53,4 +53,16 @@ $app = new \Core\Application();
 $app->bootstrap();
 
 // 3. Dispatch request
-$app->run();
+try {
+    $app->run();
+} catch (\Throwable $e) {
+    file_put_contents('/tmp/php_error_debug.log', sprintf(
+        "[%s] %s in %s:%d\n%s\n---\n",
+        date('Y-m-d H:i:s'),
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine(),
+        $e->getTraceAsString()
+    ), FILE_APPEND);
+    throw $e;
+}

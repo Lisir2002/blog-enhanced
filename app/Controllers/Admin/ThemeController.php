@@ -7,7 +7,7 @@ use App\Models\Option;
 use Core\Http\Response;
 use Core\Http\Request;
 use Core\Http\Session;
-use Core\Http\JsonResponse;
+
 
 class ThemeController
 {
@@ -283,8 +283,53 @@ class ThemeController
     }
 
     /**
-     * AJAX 预览 — 接受临时配置参数并返回渲染后的首页 HTML。
-     * 用于实时预览定制器 iframe 加载。
+     * 存储预览配置到 session（供 iframe 重载后读取）。
+     * 使用 POST 请求，避免 URL 参数长度限制。
+     */
+    public function previewStoreConfig(array $params): Response
+    {
+        can_or_403('switch_themes');
+        $name = $params['name'] ?? '';
+        $theme = app(ThemeManager::class);
+
+        if (!$theme->exists($name)) {
+            return (new Response())->json(['error' => '主题不存在'], 404);
+        }
+
+        // 从请求体读取配置（支持 form-urlencoded 和 JSON 两种格式）
+        $request = app(Request::class);
+        $config = $request->input('config', []);
+        if (is_string($config)) {
+            $config = json_decode($config, true) ?? [];
+        }
+
+        // 兜底：尝试从 php://input 直接读取（应对 PHP 内置服务器解析失败等边界情况）
+        if (empty($config)) {
+            $raw = @file_get_contents('php://input');
+            if ($raw) {
+                $parsed = [];
+                parse_str($raw, $parsed);
+                if (isset($parsed['config'])) {
+                    $config = is_string($parsed['config']) ? (json_decode($parsed['config'], true) ?? []) : $parsed['config'];
+                } else {
+                    $json = json_decode($raw, true);
+                    if (is_array($json) && isset($json['config'])) {
+                        $config = $json['config'];
+                    }
+                }
+            }
+        }
+
+        // 存储到 session
+        app(Session::class)->set('theme_preview', $name);
+        app(Session::class)->set('theme_preview_config_' . $name, $config);
+
+        return (new Response())->json(['success' => true]);
+    }
+
+    /**
+     * AJAX 预览 — 直接渲染首页 HTML 供 iframe 加载。
+     * 配置从 session 读取（由 previewStoreConfig 预先存储），无需 URL 参数。
      */
     public function previewAjax(array $params): Response
     {
@@ -293,20 +338,14 @@ class ThemeController
         $theme = app(ThemeManager::class);
 
         if (!$theme->exists($name)) {
-            return new \Core\Http\JsonResponse(['error' => '主题不存在'], 404);
+            return (new Response())->json(['error' => '主题不存在'], 404);
         }
 
-        // 从 GET 参数读取临时配置
-        $tempConfig = $_GET['config'] ?? [];
-        if (is_string($tempConfig)) {
-            $tempConfig = json_decode($tempConfig, true) ?? [];
-        }
-
-        // 将临时配置存入 session，前端渲染时读取
-        app(Session::class)->set('theme_preview_config_' . $name, $tempConfig);
+        // 设置 session 预览主题（配置已在 previewStoreConfig 中存储，或从 session 中读取已有配置）
         app(Session::class)->set('theme_preview', $name);
 
-        // 重定向到首页以获取完整渲染
-        return redirect(url('/'));
+        // 直接渲染首页（主题模板会通过 ThemeManager::outputCssVariables 读取 session 配置）
+        $homeController = app(\App\Controllers\Web\HomeController::class);
+        return $homeController->index();
     }
 }

@@ -4058,12 +4058,12 @@ th.sortable .sort-arrow svg {
    ======================================== */
 
 /* ── 双栏布局 ── */
+/* 基础 flex 容器，具体尺寸由 customize.php 内联 style 控制 */
 .customizer-layout {
   display: flex;
-  gap: 0;
-  min-height: calc(100vh - var(--header-h) - 56px - 56px);
-  margin: -28px;
   background: var(--c-bg);
+  position: relative;
+  overflow: hidden;
 }
 
 .customizer-panel-left {
@@ -4082,6 +4082,7 @@ th.sortable .sort-arrow svg {
   flex-direction: column;
   background: var(--c-bg);
   min-width: 0;
+  overflow: hidden;
 }
 
 /* ── 预览工具栏 ── */
@@ -4150,6 +4151,7 @@ th.sortable .sort-arrow svg {
   padding: 16px;
   background: var(--c-bg);
   transition: all 0.3s ease;
+  overflow: auto;
 }
 
 .customizer-preview-frame iframe {
@@ -4159,9 +4161,9 @@ th.sortable .sort-arrow svg {
   border-radius: var(--radius-sm);
   background: #fff;
   transition: all 0.3s ease;
+  min-height: 400px;
 }
 
-/* 设备模拟 */
 .customizer-preview-frame.device-desktop iframe {
   max-width: 100%;
   max-height: 100%;
@@ -4507,10 +4509,6 @@ th.sortable .sort-arrow svg {
 
 /* ── 响应式 ── */
 @media (max-width: 1024px) {
-  .customizer-layout {
-    flex-direction: column;
-    margin: -28px;
-  }
   .customizer-panel-left {
     width: 100%;
     min-width: 0;
@@ -4518,8 +4516,10 @@ th.sortable .sort-arrow svg {
     border-right: none;
     border-bottom: 1px solid var(--c-border);
     max-height: 50vh;
+    overflow-y: auto;
   }
   .customizer-panel-right {
+    flex: 1;
     min-height: 50vh;
   }
   .customizer-preview-frame.device-mobile iframe {
@@ -4536,6 +4536,9 @@ th.sortable .sort-arrow svg {
   }
   .customizer-preview-frame {
     padding: 8px;
+  }
+  .customizer-preview-frame iframe {
+    min-height: 300px;
   }
   .customizer-preview-frame.device-tablet iframe,
   .customizer-preview-frame.device-mobile iframe {

@@ -189,12 +189,20 @@ class ThemeConfigManager
 
     /**
      * 读取主题选项值（从 DB + theme.json 默认值）。
+     * 预览模式：如果 session 中有预览配置，优先返回预览值。
      */
     public function getOption(?string $key = null, mixed $default = null): mixed
     {
         if ($key === null) {
             return $this->themeConfig;
         }
+
+        // 预览模式：检查 session 预览配置
+        $previewValue = $this->getPreviewConfigValue($key);
+        if ($previewValue !== null) {
+            return $previewValue;
+        }
+
         // 从 DB 读取
         $optionKey = 'theme_' . $this->activeTheme . '_' . $key;
         try {
@@ -211,6 +219,28 @@ class ThemeConfigManager
             return $flat[$key]['default'];
         }
         return $default;
+    }
+
+    /**
+     * 从 session 获取预览配置值（如果处于预览模式）。
+     */
+    private function getPreviewConfigValue(string $key): mixed
+    {
+        try {
+            $session = app(\Core\Http\Session::class);
+            $previewTheme = $session->get('theme_preview', '');
+            if (empty($previewTheme)) {
+                return null; // 非预览模式
+            }
+            $configKey = 'theme_preview_config_' . $previewTheme;
+            $previewConfig = $session->get($configKey, []);
+            if (isset($previewConfig[$key])) {
+                return $previewConfig[$key];
+            }
+        } catch (\Throwable) {
+            // 无 session 或非预览模式
+        }
+        return null;
     }
 
     /**
@@ -241,6 +271,7 @@ class ThemeConfigManager
 
     /**
      * 获取所有配置值的扁平数组（DB 值 + 默认值合并）。
+     * 预览模式：如果 session 中有预览配置，用预览值覆盖 DB 值。
      */
     public function getAllOptions(): array
     {
@@ -269,6 +300,25 @@ class ThemeConfigManager
             }
         } catch (\Throwable) {
             // DB not ready
+        }
+
+        // 预览模式：用 session 预览配置覆盖
+        try {
+            $session = app(\Core\Http\Session::class);
+            $previewTheme = $session->get('theme_preview', '');
+            if (!empty($previewTheme)) {
+                $configKey = 'theme_preview_config_' . $previewTheme;
+                $previewConfig = $session->get($configKey, []);
+                if (!empty($previewConfig)) {
+                    foreach ($previewConfig as $key => $value) {
+                        if (isset($flat[$key])) {
+                            $result[$key] = $value;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // 无 session 或非预览模式
         }
 
         return $result;

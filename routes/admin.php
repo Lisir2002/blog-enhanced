@@ -92,6 +92,8 @@ $router->group(['prefix' => '/admin'], function (Router $router) {
     $router->post($prefix . '/themes/{name}/revisions/{id}/restore', [ThemeController::class, 'restoreRevision'])->name('admin.themes.revisions.restore')->middleware(['admin', 'csrf']);
     // Theme Preview Ajax (for live preview)
     $router->get($prefix . '/themes/{name}/preview-ajax', [ThemeController::class, 'previewAjax'])->name('admin.themes.preview-ajax')->middleware(['admin']);
+    // Theme Preview Store Config (POST, store config in session for iframe reload)
+    $router->post($prefix . '/themes/{name}/preview-config', [ThemeController::class, 'previewStoreConfig'])->name('admin.themes.preview-config')->middleware(['admin', 'csrf']);
 
     // Plugins
     $router->get($prefix . '/plugins', [PluginController::class, 'index'])->name('admin.plugins.index')->middleware(['admin']);

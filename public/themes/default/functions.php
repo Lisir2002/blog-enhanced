@@ -68,6 +68,14 @@ add_action('wp_head', function () {
 
 // ── 页脚版权 ──────────────────────────────
 add_filter('footer_text', function ($text) {
+    // 优先使用主题定制器的 footer_text 选项（支持预览模式）
+    try {
+        $theme = app(\Core\View\ThemeManager::class);
+        $customFooter = $theme->getConfigManager()->getOption('footer_text', '');
+        if ($customFooter) return $customFooter;
+    } catch (\Throwable) {
+        // fallback to global option
+    }
     $custom = Option::get('footer_text', '');
     if ($custom) return $custom;
     $year = date('Y');

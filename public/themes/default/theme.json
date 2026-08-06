@@ -125,8 +125,7 @@
                         "serif": "衬线体 (Noto Serif SC)",
                         "rounded": "圆体 (Noto Sans SC)",
                         "mono": "等宽体 (JetBrains Mono)"
-                    },
-                    "css_var": "--font-family-mode"
+                    }
                 },
                 "content_width": {
                     "type": "range",
@@ -165,8 +164,7 @@
                         "sidebar-right": "右侧边栏",
                         "sidebar-left": "左侧边栏",
                         "full-width": "全宽（无侧边栏）"
-                    },
-                    "css_var": "--layout-mode"
+                    }
                 },
                 "sticky_sidebar": {
                     "type": "switch",
